@@ -15,8 +15,8 @@ One row per requirement from `.agents/skills/shorts-engine/SKILL.md` section 2. 
 | R9 | Crisp output 1080x1920, no blurry upscales | 05 | layout.py, final_render.py, qa.py | test_final_render.py | `pytest tests/test_final_render.py`: 1 passed in 21.7s (NVENC + loudnorm + QA) | DONE |
 | R10 | Layouts: talking head, gameplay stack, facecam | 05 | layout.py, face_track.py, smoothing.py | test_layout_detect.py, test_smoothing.py | `pytest tests/test_layout_detect.py tests/test_smoothing.py`: 7 passed | DONE |
 | R11 | Animated word-by-word captions in safe zone | 05 | captions.py, config/layout.yaml | test_captions.py | `pytest tests/test_captions.py`: 4 passed (ASS/SRT validation + anchors) | DONE |
-| R12 | AI director: zoom, hook card, arrows, emoji, progress, part label, SFX | 06 | s4_director/* | test_edit_schema, test_effects | | TODO |
-| R13 | Arrows point at the correct thing (vision-located, verified) | 06 | target_locator.py, tracker.py | test_locator_parse | | TODO |
+| R12 | AI director: zoom, hook card, arrows, emoji, progress, part label, SFX | 06 | s4_director/*, effects/* | test_edit_schema.py, test_effects.py, test_director_fallback.py | `pytest tests/test_edit_schema.py tests/test_effects.py tests/test_director_fallback.py`: 14 passed | DONE |
+| R13 | Arrows point at the correct thing (vision-located, verified) | 06 | target_locator.py, tracker.py | test_locator_parse.py | `pytest tests/test_locator_parse.py`: 4 passed (safe zone, area, conversion) | DONE |
 | R14 | Generated thumbnail referencing topic, never a video frame | 07 | thumbnail_*.py | test_thumbnail | | TODO |
 | R15 | 3 titles, description, hashtags, tags/SEO | 07 | metadata.py | test_metadata | | TODO |
 | R16 | Mandatory credit block | 07, 10 | credit.py | test_credit | | TODO |
@@ -27,7 +27,7 @@ One row per requirement from `.agents/skills/shorts-engine/SKILL.md` section 2. 
 | R21 | Gemini rate limits, caching, retries | 02 | gemini_client.py, cache.py | test_gemini_client.py | `pytest tests/test_gemini_client.py`: 5 passed | DONE |
 | R22 | Windows power, GPU memory, disk-space safety | 01 | power.py, transcribe.py, source_check.py | test_m0.py, test_source_check.py | SetThreadExecutionState + VRAM release + disk check | DONE |
 | R23 | Results log feeding calibration | 09 | results.py, calibrate_scoring.py | | | TODO |
-| R24 | Tests and measurable acceptance gates | 09 | tests/* | test_*.py | `pytest -v`: 86 passed in 23.61s; `ruff check .`: clean; `check_env.py`: 14 PASS | DONE (M0 + M1 + M2 pass) |
+| R24 | Tests and measurable acceptance gates | 09 | tests/* | test_*.py | `pytest -v`: 104 passed in 23.51s; `ruff check .`: clean; `check_env.py`: 14 PASS | DONE (M0 + M1 + M2 + M3 pass) |
 | R25 | Fast lane for release-week speed | 04, 09 | judge.py, orchestrator.py | | | TODO |
 | R26 | GTA 6 domain vocabulary and boosts | 04 | glossary_gta6.yaml, blend.py | test_signals.py, test_blend.py | Topical hits count and +5 score boost | DONE |
 | R27 | Profanity masking in captions | 05 | captions.py, config/profanity.yaml | test_captions.py | `pytest tests/test_captions.py`: profanity masked with '*' | DONE |

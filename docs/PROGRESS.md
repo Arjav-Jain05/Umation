@@ -95,10 +95,22 @@ HTTP Port                 | PASS     | 127.0.0.1:8000 is free                   
 ## Milestones
 - [x] M0 scaffold and environment: completed, 10/10 tests pass, ruff clean, server probed (approved by user, tagged m0-pass)
 - [x] M1 ingest, selection, basic UI: completed, 62/62 tests pass, ruff clean, server + fixtures verified (approved by user, tagged m1-pass)
-- [x] M2 build clips: completed, 86/86 tests pass, ruff clean, check_env clean 14/14, verified NVENC loudnorm render + QA checks
-- [ ] M3 director and effects: gate passed, user approved
+- [x] M2 build clips: completed, 86/86 tests pass, ruff clean, check_env clean 14/14, verified NVENC loudnorm render + QA checks (tagged m2-pass)
+- [x] M3 director and effects: completed, 104/104 tests pass, ruff clean, check_env clean 14/14, full overlay suite & compositor verified
 - [ ] M4 packaging, thumbnails, results: gate passed, user approved
 - [ ] M5 review editor and polish: gate passed, user approved
+
+### Milestone M3 Deliverables & Verification
+1. **Config & Prompts**: `config/effects.yaml` (density rules verbatim from 06 s3), `prompts/{director_edit_list,locate_target,verify_target}.md`.
+2. **Assets Generation**: `scripts/make_sfx.py` (synthesizes 48kHz mono `whoosh.wav`, `pop.wav`, `ding.wav`), `scripts/make_overlays.py` (draws 4x supersampled `arrow.png`).
+3. **Geometry & Easing**: `app/utils/geometry.py` (`Box`, `iou`, `clamp_box`, `expand`, `in_safe_zone`), `app/utils/easing.py` (`ease_out_cubic`, `ease_in_out`, `ease_out_back`, `lerp`, `clamp01`).
+4. **Edit Schema & Validator**: `app/pipeline/s4_director/edit_schema.py` (`EditEvent`, `EditList`, `validate_and_fix` with word snapping, rate limiting, gap enforcement, safe-zone clamping, profanity masking).
+5. **Director & Fallback**: `app/pipeline/s4_director/director.py` (`plan_with_gemini`, deterministic `fallback_director` per 06 s6, `build_edit_list`).
+6. **Vision Locator & Tracker**: `app/pipeline/s4_director/target_locator.py` (`parse_box`, `extract_frame`, `locate`, `verify_crop`), `app/pipeline/s4_director/tracker.py` (CSRT tracking with area/jump divergency guards).
+7. **Effects Library**: `app/pipeline/s4_director/effects/{base,zoom_punch,hook_card,arrow,highlight_box,emoji_pop,part_label,recap_line,progress_bar,sfx}.py`.
+8. **Compositor**: `app/pipeline/s4_director/compositor.py` (`FrameReader`, `FrameWriter` NVENC raw pipes, layer prioritization), `app/pipeline/s4_director/apply_effects.py`.
+9. **Orchestrator Stage**: `app/pipeline/orchestrator.py` registered `direct` stage with weight 0.18.
+10. **Evidence**: `pytest -v`: 104/104 passed in 23.51s; `ruff check .`: All checks passed; `check_env.py`: 14 PASS.
 
 ### Milestone M2 Deliverables & Verification
 1. **Config & Layout**: `config/layout.yaml` (1080x1920 canvas, safe zones, layout anchors), `config/profanity.yaml`.
