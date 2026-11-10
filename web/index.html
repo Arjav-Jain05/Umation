@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shorts Engine</title>
+  <link rel="stylesheet" href="/web/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Shorts Engine</h1>
+      <p class="subtitle">Turn YouTube videos into viral vertical shorts &bull; GTA 6 clipping</p>
+    </header>
+
+    <div id="sys-banner" class="banner"></div>
+
+    <div class="card">
+      <div class="form-group">
+        <label for="url-input">YouTube URL</label>
+        <input type="text" id="url-input" placeholder="Paste a YouTube video or finished livestream link">
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label" for="ack-fair-use">
+          <input type="checkbox" id="ack-fair-use">
+          <span>I understand I am responsible for deciding whether I may reuse this video. The tool adds credits and risk flags but does not give legal advice.</span>
+        </label>
+      </div>
+
+      <div class="form-group">
+        <button type="button" id="options-toggle" class="btn btn-secondary">Options</button>
+      </div>
+
+      <div id="options-panel" class="card" style="display: none; margin-top: 12px; background: #12141a;">
+        <div class="form-group">
+          <label for="opt-min-tier">Min Tier</label>
+          <select id="opt-min-tier">
+            <option value="A">A Tier (Top viral potential)</option>
+            <option value="B">B Tier (Solid viral potential)</option>
+            <option value="C" selected>C Tier (All acceptable clips)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="opt-max-clip-s">Max Clip Duration (seconds)</label>
+          <input type="number" id="opt-max-clip-s" min="20" max="90" value="60">
+        </div>
+
+        <div class="form-group">
+          <label for="opt-layout">Layout</label>
+          <select id="opt-layout">
+            <option value="auto" selected>Auto detect</option>
+            <option value="gameplay">Gameplay (crop center)</option>
+            <option value="facecam">Facecam split</option>
+            <option value="talking_head">Talking head</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label" for="opt-effects">
+            <input type="checkbox" id="opt-effects" checked>
+            <span>AI Director &amp; Effects (zooms, arrows, hook card)</span>
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label" for="opt-fast">
+            <input type="checkbox" id="opt-fast">
+            <span>Fast lane (batches of 6)</span>
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label" for="opt-quality">
+            <input type="checkbox" id="opt-quality">
+            <span>Max quality (1440p)</span>
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label" for="opt-second-look">
+            <input type="checkbox" id="opt-second-look" disabled>
+            <span>Second look pass (available in M5)</span>
+          </label>
+        </div>
+      </div>
+
+      <button type="button" id="start-btn" class="btn" disabled>Find viral clips</button>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size: 18px; margin-bottom: 14px;">Recent Jobs</h2>
+      <table id="jobs-list">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Channel</th>
+            <th>Status</th>
+            <th>Stage</th>
+            <th>Clips</th>
+            <th>Created</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td colspan="7" style="color: var(--muted); text-align: center; padding: 24px;">No jobs yet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script type="module">
+    // Minimal M0 script for options toggle and basic health display
+    const toggle = document.getElementById("options-toggle");
+    const panel = document.getElementById("options-panel");
+    if (toggle && panel) {
+      toggle.addEventListener("click", () => {
+        panel.style.display = panel.style.display === "none" ? "block" : "none";
+      });
+    }
+
+    // Check system status on page load
+    async function checkSystem() {
+      try {
+        const res = await fetch("/api/system/check");
+        if (res.ok) {
+          const checks = await res.json();
+          const failures = checks.filter(c => c.status === "FAIL");
+          const warnings = checks.filter(c => c.status === "WARN");
+          const banner = document.getElementById("sys-banner");
+          if (failures.length > 0) {
+            banner.className = "banner bad";
+            banner.innerHTML = `<strong>System Configuration Issues:</strong><ul>` +
+              failures.map(f => `<li>${f.check}: ${f.detail} (Fix: ${f.fix})</li>`).join("") + `</ul>`;
+          } else if (warnings.length > 0) {
+            banner.className = "banner warn";
+            banner.innerHTML = `<strong>System Warnings:</strong><ul>` +
+              warnings.map(w => `<li>${w.check}: ${w.detail}</li>`).join("") + `</ul>`;
+          }
+        }
+      } catch (err) {
+        console.error("System check fetch error", err);
+      }
+    }
+    checkSystem();
+  </script>
+</body>
+</html>

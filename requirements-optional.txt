@@ -1,0 +1,3 @@
+diffusers
+# torch -- install separately from https://pytorch.org/get-started/locally/ with CUDA build
+realesrgan
