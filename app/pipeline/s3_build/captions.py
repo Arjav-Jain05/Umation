@@ -113,10 +113,13 @@ def write_ass(
     layout: str = "gameplay",
     out_path: Path | str = "captions.ass",
     mask_profanity_flag: bool = True,
+    emphasis_indices: list[int] | None = None,
 ) -> Path:
     """Generate ASS subtitle file with Montserrat font and yellow karaoke word highlighting."""
     p = Path(out_path)
     p.parent.mkdir(parents=True, exist_ok=True)
+
+    emphasis_set = set(emphasis_indices or [])
 
     # Determine anchor Y position based on layout
     anchor_y = 1330
@@ -143,6 +146,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
 
     dialogue_lines: list[str] = []
+    global_word_idx = 0
 
     for chunk in chunks:
         n_words = len(chunk.words)
@@ -163,10 +167,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 if mask_profanity_flag:
                     clean_w = mask_profanity(clean_w, prof_words)
 
+                word_pos = getattr(w_obj, "idx", global_word_idx + k)
                 if k == w_idx:
                     # Highlighted active word
                     rendered_words.append(f"{{\\c&H00FFFF&}}{clean_w}{{\\r}}")
-                elif w_obj.emphasis:
+                elif w_obj.emphasis or (word_pos in emphasis_set):
                     # Permanent orange emphasis within chunk
                     rendered_words.append(f"{{\\c&H0088FF&}}{clean_w}{{\\r}}")
                 else:
@@ -183,6 +188,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             dialogue_lines.append(
                 f"Dialogue: 0,{t_start_ass},{t_end_ass},Cap,,0,0,0,,{effect_tag}{text_body}"
             )
+        global_word_idx += n_words
 
     full_ass = header + "\n".join(dialogue_lines) + "\n"
     p.write_text(full_ass, encoding="utf-8")

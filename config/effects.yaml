@@ -1,0 +1,36 @@
+# Effects density rules and parameter limits (from references/06-stage4-director-effects.md s3)
+max_events_per_second: 0.4
+max_simultaneous: 2
+hook_card:
+  t_max: 0.3
+  dur: [1.8, 2.8]
+  max_words: 8
+  max_chars_per_line: 16
+  lines: 2
+zoom_punch:
+  min_gap_s: 4.0
+  scale: [1.06, 1.18]
+  dur: [0.6, 1.2]
+  max_per_clip: 6
+arrow:
+  dur: [1.2, 2.5]
+  min_confidence: 0.6
+  max_per_clip: 4
+  min_gap_s: 3.0
+highlight_box:
+  only_with_arrow: true
+emoji_pop:
+  max_per_clip: 4
+  min_gap_s: 6.0
+  dur: [0.7, 1.1]
+part_label:
+  enabled_if_part: true
+recap_line:
+  only_for_part_index_gt: 1
+  dur: [1.6, 2.2]
+  max_words: 8
+progress_bar:
+  enabled: true
+sfx:
+  max_per_clip: 8
+  min_gap_s: 0.5

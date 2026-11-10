@@ -246,6 +246,9 @@ class WordsClipArtifact(ArtifactModel):
     words: list[WordClip] = Field(default_factory=list)
 
 
+WordsArtifact = WordsClipArtifact
+
+
 class CutInterval(BaseModel):
     model_config = ConfigDict(extra="ignore")
     s: float

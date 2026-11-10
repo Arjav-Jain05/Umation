@@ -58,6 +58,11 @@ def prompts_dir() -> Path:
     return ensure(PROJECT_ROOT / "prompts")
 
 
+def config_dir() -> Path:
+    """Config directory containing YAML configuration files."""
+    return ensure(PROJECT_ROOT / "config")
+
+
 def job_dir(job_id: str) -> Path:
     """Per-job working directory under data/work/<job_id>/."""
     return ensure(data_dir() / "work" / job_id)
