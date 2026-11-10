@@ -1,0 +1,40 @@
+# Environment and secrets
+.env
+*.env
+
+# Runtime data & output
+data/
+output/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Media binaries
+*.mp4
+*.wav
+*.mkv
+*.avi
+*.mov
+*.ts
+*.webm
+*.flv
+
+# Large model assets
+assets/models/*.tflite
+!assets/models/.gitkeep
+
+# IDE & OS
+.vscode/
+.idea/
+.claude/
+.DS_Store
+Thumbs.db
