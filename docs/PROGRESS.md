@@ -94,10 +94,23 @@ HTTP Port                 | PASS     | 127.0.0.1:8000 is free                   
 
 ## Milestones
 - [x] M0 scaffold and environment: completed, 10/10 tests pass, ruff clean, server probed (approved by user, tagged m0-pass)
-- [x] M1 ingest, selection, basic UI: completed, 62/62 tests pass, ruff clean, server + fixtures verified (awaiting user approval at M1 gate)
-- [ ] M2 build clips: gate passed, user approved
+- [x] M1 ingest, selection, basic UI: completed, 62/62 tests pass, ruff clean, server + fixtures verified (approved by user, tagged m1-pass)
+- [x] M2 build clips: completed, 86/86 tests pass, ruff clean, check_env clean 14/14, verified NVENC loudnorm render + QA checks
 - [ ] M3 director and effects: gate passed, user approved
 - [ ] M4 packaging, thumbnails, results: gate passed, user approved
+- [ ] M5 review editor and polish: gate passed, user approved
+
+### Milestone M2 Deliverables & Verification
+1. **Config & Layout**: `config/layout.yaml` (1080x1920 canvas, safe zones, layout anchors), `config/profanity.yaml`.
+2. **QA Suite**: `app/utils/qa.py` (resolution, codecs, fps, blackdetect, freezedetect, pop detection, sharpness, EBU R128 loudness).
+3. **Segments**: `app/pipeline/s3_build/segments.py` (download planning, range expansion, gap merging).
+4. **Fluid Cutter**: `app/pipeline/s3_build/cutter.py` (filler removal, dead air shortening with -35 dBFS threshold, 25% removal cap, crossfades).
+5. **Face Detection & Smoothing**: `app/pipeline/s3_build/face_track.py`, `app/pipeline/s3_build/smoothing.py` (MediaPipe Tasks + OpenCV fallback, exponential smoothing, dead zones, velocity limits, lost face handling).
+6. **9:16 Layout Engine**: `app/pipeline/s3_build/layout.py` (gameplay stack blur, facecam split-screen, talking head dynamic pan/crop).
+7. **Captions**: `app/pipeline/s3_build/captions.py` (2-4 word chunking, ASS Montserrat ExtraBold 84pt pop-in animation, SRT, profanity masking).
+8. **Audio & Final Render**: `app/pipeline/s3_build/audio_clean.py`, `app/pipeline/s3_build/final_render.py` (afftdn, loudnorm 2-pass, NVENC with libx264 fallback).
+9. **Clips API**: `app/api/clips.py` (`GET`, `PATCH` approval/overrides, `/video`, `/thumbnail`, `/rerender`).
+10. **Evidence**: `pytest -v`: 86/86 passed; `ruff check .`: All checks passed; `check_env.py`: 14 PASS.
 - [ ] M5 editor, polish, performance: gate passed, user approved
 - [ ] Final audit (TRACEABILITY complete, smoke test, README)
 

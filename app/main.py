@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api.clips import router as clips_router
 from app.api.jobs import router as jobs_router
 from app.api.system import router as system_router
 from app.core.db import init_db
@@ -85,6 +86,7 @@ def create_app() -> FastAPI:
     # Include API routers
     app.include_router(system_router)
     app.include_router(jobs_router)
+    app.include_router(clips_router)
 
     # Static mounts
     web_dir = settings.project_root / "web"

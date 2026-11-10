@@ -77,6 +77,7 @@ def test_source_check_heatmap_parsed(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     ctx.job = {"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "id": "test_job"}
     ctx.settings.max_source_hours = 12
     ctx.settings.project_root = tmp_path
+    ctx.db_path = tmp_path / "app.db"
     ctx.options.max_source_height = 1080
 
     mock_info = {
@@ -125,6 +126,7 @@ def test_source_check_heatmap_missing_null(monkeypatch: pytest.MonkeyPatch, tmp_
     ctx.job = {"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "id": "test_job"}
     ctx.settings.max_source_hours = 12
     ctx.settings.project_root = tmp_path
+    ctx.db_path = tmp_path / "app.db"
     ctx.options.max_source_height = 1080
 
     mock_info = {

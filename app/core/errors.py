@@ -95,6 +95,12 @@ class Canceled(AppError):
         super().__init__("CANCELED", message)
 
 
+class OutputQAFailed(AppError):
+    def __init__(self, message: str, failures: list[str] | None = None) -> None:
+        hint = "; ".join(failures) if failures else None
+        super().__init__("OUTPUT_QA_FAILED", message, hint)
+
+
 def to_api(err: AppError) -> dict[str, str]:
     """Format an AppError into standard API error dictionary:
 

@@ -14,6 +14,11 @@ from config.settings import get_settings
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
+def project_root() -> Path:
+    """Project repository root directory."""
+    return PROJECT_ROOT
+
+
 def ensure(path: Path) -> Path:
     """Ensure parent directory (or directory itself) exists, returning the path."""
     if path.suffix:  # Has file extension -> create parent
@@ -36,6 +41,16 @@ def output_dir() -> Path:
 def assets_dir() -> Path:
     """Assets directory containing fonts, models, sfx, overlays."""
     return ensure(PROJECT_ROOT / "assets")
+
+
+def fonts_dir() -> Path:
+    """Assets fonts directory containing TTF/OTF font files."""
+    return ensure(assets_dir() / "fonts")
+
+
+def models_dir() -> Path:
+    """Assets models directory containing AI model binaries."""
+    return ensure(assets_dir() / "models")
 
 
 def prompts_dir() -> Path:

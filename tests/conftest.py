@@ -14,6 +14,13 @@ from app.main import create_app
 from config.settings import get_settings
 
 
+@pytest.fixture(autouse=True)
+def disable_background_worker(monkeypatch: pytest.MonkeyPatch):
+    """Prevent background worker thread from running during automated unit/API tests."""
+    monkeypatch.setattr("app.core.worker.Worker.start", lambda self: None)
+    monkeypatch.setattr("app.core.worker.Worker.stop", lambda self: None)
+
+
 @pytest.fixture
 def temp_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
     """Provide isolated temp directories for data, output, and logs."""

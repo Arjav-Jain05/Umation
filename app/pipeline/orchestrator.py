@@ -18,6 +18,8 @@ from app.pipeline.s1_ingest import transcribe as s1_transcribe
 from app.pipeline.s2_select import judge as s2_judge
 from app.pipeline.s2_select import nominate as s2_nominate
 from app.pipeline.s2_select import planner as s2_planner
+from app.pipeline.s3_build import run as s3_build_run
+from app.pipeline.s3_build import segments as s3_segments
 
 logger = logging.getLogger("app.pipeline.orchestrator")
 
@@ -30,14 +32,16 @@ class StageDef:
     artifact: str
 
 
-# M1 Stage definitions (Ingest + Selection)
+# Pipeline Stage definitions
 STAGES: list[StageDef] = [
-    StageDef("source_check", 0.05, s1_source_check.run, "source_info.json"),
-    StageDef("audio_download", 0.15, s1_download.run, "audio.wav"),
-    StageDef("transcribe", 0.45, s1_transcribe.run, "transcript.json"),
-    StageDef("nominate", 0.15, s2_nominate.run, "candidates.json"),
-    StageDef("judge", 0.15, s2_judge.run, "judged.json"),
-    StageDef("plan", 0.05, s2_planner.run, "plan.json"),
+    StageDef("source_check", 0.02, s1_source_check.run, "source_info.json"),
+    StageDef("audio_download", 0.06, s1_download.run, "audio.wav"),
+    StageDef("transcribe", 0.25, s1_transcribe.run, "transcript.json"),
+    StageDef("nominate", 0.10, s2_nominate.run, "candidates.json"),
+    StageDef("judge", 0.10, s2_judge.run, "judged.json"),
+    StageDef("plan", 0.04, s2_planner.run, "plan.json"),
+    StageDef("segments", 0.15, s3_segments.run, "segments.json"),
+    StageDef("build", 0.28, s3_build_run, "build_done.json"),
 ]
 
 
