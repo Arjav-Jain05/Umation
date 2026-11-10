@@ -80,13 +80,14 @@ def run_smoke_test(target_url: str, base_api: str = "http://127.0.0.1:8000") -> 
                 logger.info("Job reached final state: %s", status)
                 # Fetch clips
                 clips_data = http_get(f"{base_api}/api/jobs/{job_id}/clips")
-                clips = clips_data.get("clips", [])
+                clips = clips_data if isinstance(clips_data, list) else clips_data.get("clips", [])
                 logger.info("Planned clips count: %d", len(clips))
                 print("\n================ PLANNED CLIPS SUMMARY ================")
                 print(f"{'CLIP ID':<10} | {'START':<8} | {'END':<8} | {'TIER':<5} | {'SCORE':<6} | {'RISK':<8} | HOOK")
                 print("-" * 75)
                 for c in clips:
-                    print(f"{c['id']:<10} | {c['start']:<8.1f} | {c['end']:<8.1f} | {c['tier']:<5} | {c['final_score']:<6.1f} | {c['risk']:<8} | {c['hook_text'][:30]}")
+                    hook_t = c.get("hook_text") or c.get("topic") or ""
+                    print(f"{c['id']:<10} | {c['start']:<8.1f} | {c['end']:<8.1f} | {c['tier']:<5} | {c['final_score']:<6.1f} | {c['risk']:<8} | {hook_t[:30]}")
                 print("=======================================================\n")
                 return 0
             elif status == "failed":

@@ -99,8 +99,9 @@ def run(ctx: JobContext) -> None:
 
     prompt_template = (prompts_dir() / "judge_candidate.md").read_text(encoding="utf-8")
 
-    batch_size = 6 if ctx.options.fast_mode else 4
-    num_runs = 1 if ctx.options.fast_mode else 2
+    is_fast = bool(getattr(ctx.options, "fast_mode", False) or getattr(ctx.options, "fast_lane", False))
+    batch_size = 6 if is_fast else 4
+    num_runs = 1 if is_fast else 2
 
     # Group into batches
     batches: list[list[tuple[Candidate, bool]]] = [

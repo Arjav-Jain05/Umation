@@ -45,6 +45,7 @@ def plan_clips(
     domain: str = "gta6",
     min_tier: str = "C",
     gemini_client: Any = None,
+    second_look: bool = False,
 ) -> list[Clip]:
     """Execute planning pipeline: blend scores, assess risk, deduplicate, and split stories."""
     thresholds = scoring_cfg.get("thresholds", {"min_final": 60, "tier_a": 80, "tier_b": 70})
@@ -74,7 +75,10 @@ def plan_clips(
             final = 79.0
 
         if final < min_final:
-            continue
+            if second_look and final >= (min_final - 8.0):
+                final = min_final
+            else:
+                continue
 
         tier = "A" if final >= tier_a_min else ("B" if final >= tier_b_min else "C")
         if tier_rank_order.get(tier, 1) < target_rank:
@@ -230,6 +234,7 @@ def run(ctx: JobContext) -> None:
         domain=ctx.settings.project_domain,
         min_tier=ctx.options.min_tier,
         gemini_client=ctx.gemini,
+        second_look=bool(getattr(ctx.options, "second_look", False)),
     )
 
     plan = Plan(

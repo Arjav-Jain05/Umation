@@ -355,6 +355,7 @@ class JobOptions(BaseModel):
     effects: bool = Field(default=True, description="Enable AI director and effects")
     second_look: bool = Field(default=False, description="Run an extra candidate pass")
     fast_mode: bool = Field(default=False, description="Batch 6 instead of 4 candidates")
+    fast_lane: bool = Field(default=False, description="Fast lane mode: batch 6 instead of 4 candidates")
     max_height: int = Field(default=1080, description="Video download resolution height")
 
 

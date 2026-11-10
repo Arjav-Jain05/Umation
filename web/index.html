@@ -80,13 +80,30 @@
 
         <div class="form-group">
           <label class="checkbox-label" for="opt-second-look">
-            <input type="checkbox" id="opt-second-look" disabled>
-            <span>Second look pass (available in M5)</span>
+            <input type="checkbox" id="opt-second-look">
+            <span>Second look pass (rescue borderline moments near threshold)</span>
           </label>
         </div>
       </div>
 
       <button type="button" id="start-btn" class="btn" disabled>Find viral clips</button>
+    </div>
+
+    <!-- Results Performance Summary (M5) -->
+    <div id="results-card" class="card" style="display: none;">
+      <h2 style="font-size: 18px; margin-bottom: 14px;">Top Performing Clips (Logged Analytics)</h2>
+      <table id="results-list">
+        <thead>
+          <tr>
+            <th>Clip</th>
+            <th>Platform</th>
+            <th>Views</th>
+            <th>Likes</th>
+            <th>Logged</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
 
     <div class="card">
