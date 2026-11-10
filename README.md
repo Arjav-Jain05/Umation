@@ -72,9 +72,12 @@ Free, local Windows web app (FastAPI + vanilla HTML/CSS/JS on `127.0.0.1:8000`) 
 
 1. **Paste a YouTube URL:** Video or finished livestream VOD (e.g. `https://www.youtube.com/watch?v=...`).
 2. **Acknowledge Fair Use:** Tick the mandatory responsibility checkbox confirming you understand fair use and credit policies.
-3. **Configure Options (optional):** Choose minimum tier threshold (A, B, C), layout override (gameplay, facecam, talking head), max duration (20–90 s), and effect preferences.
+3. **Configure Options (optional):** Choose minimum tier threshold (A, B, C), layout override (gameplay, facecam, talking head), max duration (20–90 s), effect preferences, **Fast lane** (single-round judging for rapid release-week turnaround), and **Second look** (rescues borderline clips scoring 52–59).
 4. **Click "Find viral clips":** The pipeline ingests audio, transcribes with Whisper on CUDA, nominates and judges moments with Gemini, blends YouTube replay heatmaps, cuts video ranges, and packages vertical clips.
-5. **Review & Export:** Review rendered clips, approve/reject candidates, copy titles/descriptions/tags, or download zip packages for manual upload.
+5. **Review, Edit & Export:**
+   - **Interactive Editor:** Click "Edit Clip" on any card to trim start/end boundaries, click transcript words to jump playback or toggle caption emphasis styling, and customize or delete AI director effect overlays. Click "Save & Re-render" to rebuild the clip in seconds.
+   - **Bulk Actions:** Approve or reject multiple clips, click "Download all approved" for a streaming `.zip` bundle, or click "Open output folder" to inspect files in Windows Explorer.
+   - **Log Performance & Calibrate:** Once uploaded manually, click "Log result" on a clip to enter its view/like counts. Run `python scripts/calibrate_scoring.py` to recalibrate score blending weights using Spearman rank correlation.
 
 ---
 
@@ -88,7 +91,10 @@ output/<slug>-<video_id>/<clip_id>_<tier>[_part<k>of<n>]/
   thumb_16x9.jpg          # 1280x720 horizontal thumbnail
   metadata.txt            # Ready-to-copy title, description, tags, hashtags, credit
   metadata.json           # Structured JSON artifact with review info
-  subtitles.srt           # Clean subtitle file
+  captions.srt            # Clean subtitle file
+  edit_list.json          # Directed effects event timeline
+  credit.txt              # Factual credit and source attribution block
+  notes.txt               # Clip production notes, tier, and score breakdown
 ```
 
 ---

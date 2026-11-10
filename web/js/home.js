@@ -19,6 +19,9 @@ const optLayout = document.getElementById("opt-layout");
 const optEffects = document.getElementById("opt-effects");
 const optFast = document.getElementById("opt-fast");
 const optQuality = document.getElementById("opt-quality");
+const optSecondLook = document.getElementById("opt-second-look");
+const resultsCard = document.getElementById("results-card");
+const resultsListTable = document.getElementById("results-list");
 
 // Toggle options panel
 if (optionsToggle && optionsPanel) {
@@ -61,6 +64,7 @@ if (startBtn) {
       layout: optLayout?.value || "auto",
       effects: optEffects ? optEffects.checked : true,
       fast_mode: optFast ? optFast.checked : false,
+      second_look: optSecondLook ? optSecondLook.checked : false,
       max_height: optQuality && optQuality.checked ? 1440 : 1080,
     };
 
@@ -158,6 +162,30 @@ async function checkSystem() {
   }
 }
 
+// Load logged performance results summary (M5)
+async function loadResultsSummary() {
+  if (!resultsCard || !resultsListTable) return;
+  try {
+    const summary = await getJSON("/api/results/summary");
+    if (summary.total_logged > 0 && summary.top_clips && summary.top_clips.length > 0) {
+      resultsCard.style.display = "block";
+      const tbody = resultsListTable.querySelector("tbody");
+      tbody.innerHTML = summary.top_clips.map((r) => `
+        <tr>
+          <td><span style="font-weight: 600;">${r.clip_id}</span> (${r.job_id})</td>
+          <td><span class="badge" style="background: #262b36;">${r.platform}</span></td>
+          <td style="color: var(--accent); font-weight: 700;">${(r.views || 0).toLocaleString()}</td>
+          <td>${(r.likes || 0).toLocaleString()}</td>
+          <td style="color: var(--muted); font-size: 13px;">${r.logged_at ? new Date(r.logged_at).toLocaleDateString() : "—"}</td>
+        </tr>
+      `).join("");
+    }
+  } catch (err) {
+    console.error("Failed to load results summary:", err);
+  }
+}
+
 // Initial loads
 checkSystem();
 refreshJobs();
+loadResultsSummary();
