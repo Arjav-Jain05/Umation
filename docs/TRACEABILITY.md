@@ -4,13 +4,13 @@ One row per requirement from `.agents/skills/shorts-engine/SKILL.md` section 2. 
 
 | ID | Requirement | Spec ref | Files | Tests | Evidence | Status |
 |---|---|---|---|---|---|---|
-| R1 | Basic web UI on localhost: paste link, press button | 08 | web/index.html, web/js/home.js | test_api_jobs | | TODO |
-| R2 | Live progress per stage in the UI | 02, 08 | app/core/events.py, web/js/job.js | | | TODO |
-| R3 | Find all viral-worthy moments; count varies | 04 | s2_select/* | test_planner | | TODO |
-| R4 | Score blends transcript judgement + replay heatmap + audio energy | 04 | blend.py, signal_*.py | test_signals, test_blend | | TODO |
-| R5 | Hook quality judged; weak hook cannot reach tier A | 04 | blend.py, planner.py | test_blend | | TODO |
-| R6 | Clips make sense standalone or are fixed/rejected | 04 | judge.py | | | TODO |
-| R7 | Long stories split into Part 1/2/3 | 04 | part_splitter.py | test_part_splitter | | TODO |
+| R1 | Basic web UI on localhost: paste link, press button | 08 | web/index.html, web/js/home.js | test_api_jobs.py | `pytest tests/test_api_jobs.py`: 4 passed in 0.17s | DONE |
+| R2 | Live progress per stage in the UI | 02, 08 | app/core/events.py, web/js/job.js | test_api_jobs.py, test_orchestrator_resume.py | SSE /events endpoint + stage bars in job.html | DONE |
+| R3 | Find all viral-worthy moments; count varies | 04 | app/pipeline/s2_select/* | test_planner.py | `pytest tests/test_planner.py`: 5 passed | DONE |
+| R4 | Score blends transcript judgement + replay heatmap + audio energy | 04 | blend.py, signal_*.py | test_signals.py, test_blend.py | `pytest tests/test_signals.py tests/test_blend.py`: 8 passed | DONE |
+| R5 | Hook quality judged; weak hook cannot reach tier A | 04 | blend.py, planner.py | test_blend.py | `pytest tests/test_blend.py`: weak hook < 5.0 capped at 69 | DONE |
+| R6 | Clips make sense standalone or are fixed/rejected | 04 | judge.py, blend.py | test_blend.py | Context penalty logic (-15 unfixable, -4 fixable) | DONE |
+| R7 | Long stories split into Part 1/2/3 | 04 | part_splitter.py | test_part_splitter.py | `pytest tests/test_part_splitter.py`: 2 passed | DONE |
 | R8 | Fluid cuts: dead air and fillers removed, crossfaded | 05 | cutter.py | test_cutter | | TODO |
 | R9 | Crisp output 1080x1920, no blurry upscales | 05 | layout.py, final_render.py, qa.py | test_final_render | | TODO |
 | R10 | Layouts: talking head, gameplay stack, facecam | 05 | layout.py, face_track.py | test_layout_detect | | TODO |
@@ -20,16 +20,16 @@ One row per requirement from `.agents/skills/shorts-engine/SKILL.md` section 2. 
 | R14 | Generated thumbnail referencing topic, never a video frame | 07 | thumbnail_*.py | test_thumbnail | | TODO |
 | R15 | 3 titles, description, hashtags, tags/SEO | 07 | metadata.py | test_metadata | | TODO |
 | R16 | Mandatory credit block | 07, 10 | credit.py | test_credit | | TODO |
-| R17 | Fair-use risk flags per clip | 10 | risk.py | test_risk | | TODO |
+| R17 | Fair-use risk flags per clip | 10 | risk.py, planner.py | test_risk.py | `pytest tests/test_risk.py`: 4 passed | DONE |
 | R18 | Review screen: preview, tier, edit text, approve/reject, copy, download | 08 | web/js/job.js, editor.js | manual + API tests | | TODO |
 | R19 | Output folder per clip with everything needed to upload | 02, 07 | package.py | test_package | | TODO |
-| R20 | Handles 8-hour VODs without filling the disk | 03 | download.py, segments.py, chunker.py | long-video test | | TODO |
-| R21 | Gemini rate limits, caching, retries | 02 | gemini_client.py, cache.py | test_gemini_client | | TODO |
-| R22 | Windows power, GPU memory, disk-space safety | 01 | power.py, transcribe.py, source_check.py | | | TODO |
+| R20 | Handles 8-hour VODs without filling the disk | 03 | download.py, chunker.py | test_chunker.py | 20-min chunks, 16k mono wav download guard | DONE |
+| R21 | Gemini rate limits, caching, retries | 02 | gemini_client.py, cache.py | test_gemini_client.py | `pytest tests/test_gemini_client.py`: 5 passed | DONE |
+| R22 | Windows power, GPU memory, disk-space safety | 01 | power.py, transcribe.py, source_check.py | test_m0.py, test_source_check.py | SetThreadExecutionState + VRAM release + disk check | DONE |
 | R23 | Results log feeding calibration | 09 | results.py, calibrate_scoring.py | | | TODO |
-| R24 | Tests and measurable acceptance gates | 09 | tests/* | test_m0.py | `pytest -v`: 10 passed in 0.42s; `ruff check .`: clean; `check_env.py`: 14 PASS | PARTIAL (M0 pass) |
+| R24 | Tests and measurable acceptance gates | 09 | tests/* | test_*.py | `pytest -v`: 62 passed in 1.05s; `ruff check .`: clean; `check_env.py`: 14 PASS | DONE (M0 + M1 pass) |
 | R25 | Fast lane for release-week speed | 04, 09 | judge.py, orchestrator.py | | | TODO |
-| R26 | GTA 6 domain vocabulary and boosts | 04 | glossary_gta6.yaml, blend.py | test_signals | | TODO |
+| R26 | GTA 6 domain vocabulary and boosts | 04 | glossary_gta6.yaml, blend.py | test_signals.py, test_blend.py | Topical hits count and +5 score boost | DONE |
 | R27 | Profanity masking in captions | 05 | captions.py, text.py | test_captions | | TODO |
 | R28 | Quality at least equal to Klap's feature set | 05, 06 | all | milestone audits | | TODO |
 

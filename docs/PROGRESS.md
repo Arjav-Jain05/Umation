@@ -93,8 +93,8 @@ HTTP Port                 | PASS     | 127.0.0.1:8000 is free                   
 - [x] Skills verified in workspace `.agents/skills/`
 
 ## Milestones
-- [x] M0 scaffold and environment: completed, 10/10 tests pass, ruff clean, server probed (awaiting user approval)
-- [ ] M1 ingest, selection, basic UI: gate passed, user approved
+- [x] M0 scaffold and environment: completed, 10/10 tests pass, ruff clean, server probed (approved by user, tagged m0-pass)
+- [x] M1 ingest, selection, basic UI: completed, 62/62 tests pass, ruff clean, server + fixtures verified (awaiting user approval at M1 gate)
 - [ ] M2 build clips: gate passed, user approved
 - [ ] M3 director and effects: gate passed, user approved
 - [ ] M4 packaging, thumbnails, results: gate passed, user approved
@@ -104,6 +104,7 @@ HTTP Port                 | PASS     | 127.0.0.1:8000 is free                   
 ## Log (newest first)
 | Date | Milestone/module | What was done | Evidence | Unverified / open issues |
 |---|---|---|---|---|
+| 2026-11-10 | M1 complete | Implemented full M1 ingest, selection, worker, orchestrator, and web dashboard: `config/{scoring,glossary_gta6,source_policy}.yaml`, `prompts/{nominate_candidates,judge_candidate,plan_parts}.md`, `app/core/{cache,power,events,gemini_client,worker}.py`, `app/utils/{timecode,text,ffmpeg}.py`, `app/pipeline/context.py`, `app/pipeline/s1_ingest/{source_check,download,tidy_transcript,transcribe}.py`, `app/pipeline/s2_select/{chunker,refine,signal_heatmap,signal_audio,signal_speech,blend,risk,part_splitter,nominate,judge,planner}.py`, `app/pipeline/orchestrator.py`, `app/api/jobs.py`, `web/{index.html,job.html,js/api.js,js/home.js,js/job.js}`, `scripts/make_fixtures.py`, `scripts/dev_smoke_test.py`. Implemented 14 test modules in `tests/`. | `pytest -v`: 62 passed in 1.05s; `ruff check .`: All checks passed; `check_env.py`: 14 PASS; `make_fixtures.py`: synthetic.mp4, heatmap_100.json, gemini JSON fixtures generated. | None. At M1 gate waiting for user approval. |
 | 2026-11-10 | M0 complete | Scaffolded project: `pyproject.toml`, `.gitignore`, `start.bat`, `requirements.lock`, `README.md`. Implemented `config/settings.py`, `app/core/{paths,errors,db,models,schemas}.py`, `app/utils/logging_setup.py`, `app/api/system.py`, `app/main.py`, `web/{index.html,css/style.css}`, `scripts/update_ytdlp.py`. Created test suite `tests/test_m0.py`. Ran ruff and pytest. Probed live server. | `pytest -v`: 10 passed; `ruff check .`: All checks passed; `check_env.py`: 14 PASS; probe `/api/health`: 200 `{"ok":true,"version":"1.0.0"}`; probe `/web/index.html`: 200. | None. At M0 gate waiting for user approval. |
 | 2026-11-10 | Phase 2 complete | Vetted and installed 8 skills into `.agents/skills/`: fastapi, ffmpeg, pytest, sqlite, ruff, pydantic, git-commit-pro, gemini-api-dev. Logged in `INSTALLED-SKILLS.md`. | Verified SKILL.md in all 8 directories. | Ready for Milestone M0. |
 | 2026-11-10 | Phase 1 complete | User set Gemini key in `.env`. All 14 checks in `check_env.py` PASS with 0 FAIL, 0 WARN. | Full table pasted above. | Ready for Phase 2 skills. |

@@ -112,40 +112,6 @@
     </div>
   </div>
 
-  <script type="module">
-    // Minimal M0 script for options toggle and basic health display
-    const toggle = document.getElementById("options-toggle");
-    const panel = document.getElementById("options-panel");
-    if (toggle && panel) {
-      toggle.addEventListener("click", () => {
-        panel.style.display = panel.style.display === "none" ? "block" : "none";
-      });
-    }
-
-    // Check system status on page load
-    async function checkSystem() {
-      try {
-        const res = await fetch("/api/system/check");
-        if (res.ok) {
-          const checks = await res.json();
-          const failures = checks.filter(c => c.status === "FAIL");
-          const warnings = checks.filter(c => c.status === "WARN");
-          const banner = document.getElementById("sys-banner");
-          if (failures.length > 0) {
-            banner.className = "banner bad";
-            banner.innerHTML = `<strong>System Configuration Issues:</strong><ul>` +
-              failures.map(f => `<li>${f.check}: ${f.detail} (Fix: ${f.fix})</li>`).join("") + `</ul>`;
-          } else if (warnings.length > 0) {
-            banner.className = "banner warn";
-            banner.innerHTML = `<strong>System Warnings:</strong><ul>` +
-              warnings.map(w => `<li>${w.check}: ${w.detail}</li>`).join("") + `</ul>`;
-          }
-        }
-      } catch (err) {
-        console.error("System check fetch error", err);
-      }
-    }
-    checkSystem();
-  </script>
+  <script type="module" src="/web/js/home.js"></script>
 </body>
 </html>

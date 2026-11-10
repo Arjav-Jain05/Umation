@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api.jobs import router as jobs_router
 from app.api.system import router as system_router
 from app.core.db import init_db
 from app.core.errors import (
@@ -24,6 +25,7 @@ from app.core.errors import (
     TooLong,
     to_api,
 )
+from app.core.worker import worker
 from app.utils.logging_setup import get_logger, setup_logging
 from config.settings import get_settings
 
@@ -53,9 +55,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     setup_logging(settings)
     logger.info("Initializing database at %s", settings.data_dir / "app.db")
     init_db(settings.data_dir / "app.db")
+    logger.info("Starting background pipeline worker thread")
+    worker.start()
     logger.info("Shorts Engine startup complete. Listening on %s:%d", settings.host, settings.port)
     yield
-    logger.info("Shorts Engine shutting down.")
+    logger.info("Stopping worker and shutting down Shorts Engine")
+    worker.stop()
 
 
 def create_app() -> FastAPI:
@@ -79,6 +84,7 @@ def create_app() -> FastAPI:
 
     # Include API routers
     app.include_router(system_router)
+    app.include_router(jobs_router)
 
     # Static mounts
     web_dir = settings.project_root / "web"

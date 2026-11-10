@@ -1,0 +1,20 @@
+{
+  "candidates": [
+    {
+      "start_sid": 1,
+      "end_sid": 5,
+      "hook_sid": 1,
+      "reason": "Dramatic car chase and helicopter escape",
+      "hint_score": 88,
+      "is_story": false
+    },
+    {
+      "start_sid": 8,
+      "end_sid": 14,
+      "hook_sid": 8,
+      "reason": "Secret military bunker discovery and jet steal",
+      "hint_score": 92,
+      "is_story": true
+    }
+  ]
+}

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shorts Engine &bull; Job Details</title>
+  <link rel="stylesheet" href="/web/css/style.css">
+  <style>
+    .stage-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    .stage-label {
+      width: 130px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .progress-bar-bg {
+      flex: 1;
+      height: 8px;
+      background: #0b0d10;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .progress-bar-fill.done {
+      background: var(--ok);
+    }
+    .overall-bar {
+      height: 14px;
+      margin: 14px 0;
+      background: #0b0d10;
+      border-radius: 7px;
+      overflow: hidden;
+    }
+    .overall-bar .fill {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .clip-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .clip-card {
+      background: #12141a;
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .clip-card.approved {
+      border-color: var(--ok);
+    }
+    .clip-card.rejected {
+      opacity: 0.5;
+    }
+    .chip {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 16px;
+      background: #262b36;
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .chip.active {
+      background: var(--accent);
+      color: var(--accent-text);
+      font-weight: 600;
+    }
+    .badge-tier-A { background: var(--ok); color: #0f1115; }
+    .badge-tier-B { background: #5e81ac; color: #fff; }
+    .badge-tier-C { background: #4c566a; color: #eceff4; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <div>
+        <a href="/web/index.html" style="color: var(--muted); text-decoration: none; font-size: 14px;">&larr; Back to jobs</a>
+        <h1 id="video-title" style="margin-top: 6px;">Loading job...</h1>
+        <p class="subtitle"><span id="video-channel">—</span> &bull; <a id="video-link" href="#" target="_blank" style="color: var(--accent);">View original on YouTube</a></p>
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <span id="job-status-badge" class="badge badge-queued">queued</span>
+        <button id="cancel-btn" class="btn btn-secondary" style="display: none;">Cancel</button>
+        <button id="resume-btn" class="btn" style="display: none;">Resume</button>
+        <button id="cleanup-btn" class="btn btn-secondary" style="display: none;">Clean up</button>
+      </div>
+    </header>
+
+    <!-- Progress Panel -->
+    <div id="progress" class="card">
+      <h2 style="font-size: 16px; margin-bottom: 12px;">Pipeline Progress</h2>
+      <div id="progress-stages">
+        <div class="stage-row" data-stage="source_check">
+          <div class="stage-label">1. Source Check</div>
+          <div class="progress-bar-bg"><div class="progress-bar-fill"></div></div>
+        </div>
+        <div class="stage-row" data-stage="audio_download">
+          <div class="stage-label">2. Audio Download</div>
+          <div class="progress-bar-bg"><div class="progress-bar-fill"></div></div>
+        </div>
+        <div class="stage-row" data-stage="transcribe">
+          <div class="stage-label">3. Transcribe</div>
+          <div class="progress-bar-bg"><div class="progress-bar-fill"></div></div>
+        </div>
+        <div class="stage-row" data-stage="nominate">
+          <div class="stage-label">4. Nominate</div>
+          <div class="progress-bar-bg"><div class="progress-bar-fill"></div></div>
+        </div>
+        <div class="stage-row" data-stage="judge">
+          <div class="stage-label">5. Judge Rubric</div>
+          <div class="progress-bar-bg"><div class="progress-bar-fill"></div></div>
+        </div>
+        <div class="stage-row" data-stage="plan">
+          <div class="stage-label">6. Select &amp; Plan</div>
+          <div class="progress-bar-bg"><div class="progress-bar-fill"></div></div>
+        </div>
+      </div>
+
+      <div class="overall-bar">
+        <div id="overall-fill" class="fill"></div>
+      </div>
+      <p id="progress-msg" style="color: var(--muted); font-size: 14px;">Waiting to start...</p>
+      <div id="warnings" style="margin-top: 10px;"></div>
+    </div>
+
+    <!-- Summary Panel -->
+    <div id="summary" class="card" style="display: none;">
+      <h2 style="font-size: 16px; margin-bottom: 8px;">Selection Summary</h2>
+      <p id="summary-text" style="font-size: 15px; margin-bottom: 6px;"></p>
+      <p id="summary-signals" style="font-size: 13px; color: var(--muted);"></p>
+    </div>
+
+    <!-- Filters & Bulk Actions -->
+    <div id="controls-bar" class="card" style="display: none; padding: 14px 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <div id="filters" style="display: flex; gap: 8px; align-items: center;">
+          <span class="chip active" data-filter="all">All</span>
+          <span class="chip" data-filter="A">A Tier</span>
+          <span class="chip" data-filter="B">B Tier</span>
+          <span class="chip" data-filter="C">C Tier</span>
+          <span class="chip" data-filter="approved">Approved</span>
+          <span class="chip" data-filter="rejected">Rejected</span>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <button id="approve-a-btn" class="btn btn-secondary" style="min-height: 32px; padding: 4px 12px; font-size: 13px;">Approve all A tier</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Clip Cards Grid -->
+    <div id="clips" class="clip-grid"></div>
+
+    <footer style="margin-top: 40px; text-align: center; color: var(--muted); font-size: 13px;">
+      Credits are added to every description. Credits do not grant permission.
+    </footer>
+  </div>
+
+  <script type="module" src="/web/js/job.js"></script>
+</body>
+</html>
