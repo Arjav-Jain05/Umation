@@ -1,0 +1,7 @@
+# Channels are matched by channel_id first, then by lower-cased channel name.
+allow:        # channels that have explicitly allowed clipping/reuse (user fills in)
+  - {name: "", channel_id: "", note: "e.g. permission email or posted clipping policy"}
+block:        # never process these
+  - {name: "", channel_id: "", note: ""}
+require_cc: false     # if true, only Creative Commons or allowlisted sources are processed
+max_clip_seconds: 90  # absolute ceiling regardless of options

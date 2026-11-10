@@ -1,0 +1,28 @@
+{
+  "evaluations": [
+    {
+      "cid": "n01",
+      "scores": {
+        "hook": 9.0,
+        "payoff": 8.5,
+        "clarity": 8.5,
+        "emotion": 8.0,
+        "novelty": 8.5,
+        "shareability": 8.0,
+        "pace": 8.5
+      },
+      "needs_context": false,
+      "context_fix": null,
+      "is_story": false,
+      "topic": "GTA 6 Vehicle Physics",
+      "entities": [
+        "Lucia",
+        "Vice City"
+      ],
+      "content_flags": [],
+      "reasons": {
+        "hook": "Instant high speed action"
+      }
+    }
+  ]
+}

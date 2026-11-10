@@ -1,0 +1,7 @@
+weights: {llm: 0.65, heat: 0.20, audio: 0.15}
+rubric_weights: {hook: 0.25, payoff: 0.20, clarity: 0.15, emotion: 0.15, novelty: 0.10, shareability: 0.10, pace: 0.05}
+thresholds: {min_final: 60, tier_a: 80, tier_b: 70}
+limits: {min_clip_s: 15, max_clip_s: 60, story_max_s: 150, max_parts: 4, max_clips_soft: 40}
+dedupe: {time_overlap: 0.30, text_similarity: 85}
+chunk: {minutes: 20, overlap_s: 90}
+penalties: {no_context: 15, fixable_context: 4, low_speech: 20, long_clip: 5, weak_hook_cap: 69}

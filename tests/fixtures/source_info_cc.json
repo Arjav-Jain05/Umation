@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "video_id": "test_video_123",
+  "url": "https://www.youtube.com/watch?v=test_video_123",
+  "webpage_url": "https://www.youtube.com/watch?v=test_video_123",
+  "title": "GTA 6 Gameplay Leaks and Map Breakdown",
+  "channel": "Vice City News",
+  "channel_url": "https://www.youtube.com/@vicecitynews",
+  "uploader": "Vice City News",
+  "upload_date": "20261101",
+  "duration_s": 720.0,
+  "live_status": "not_live",
+  "license": "Creative Commons Attribution license (reuse allowed)",
+  "width": 1920,
+  "height": 1080,
+  "fps": 30.0,
+  "view_count": 125000,
+  "like_count": 8500,
+  "description_head": "Today we look at the physics leaks for GTA 6 and the new Leonida map size.",
+  "chapters": [
+    {"start": 0.0, "end": 60.0, "title": "Intro"},
+    {"start": 60.0, "end": 300.0, "title": "Physics Engine Leaks"}
+  ],
+  "heatmap": [
+    {"start": 0.0, "end": 60.0, "value": 0.25},
+    {"start": 60.0, "end": 120.0, "value": 0.95},
+    {"start": 120.0, "end": 180.0, "value": 0.80},
+    {"start": 180.0, "end": 240.0, "value": 0.30}
+  ],
+  "heatmap_avg_seg_s": 60.0,
+  "source_policy": {"status": "none", "matched_rule": null},
+  "fetched_at": "2026-11-10T12:00:00Z"
+}
