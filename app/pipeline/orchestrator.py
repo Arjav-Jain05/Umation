@@ -21,6 +21,7 @@ from app.pipeline.s2_select import planner as s2_planner
 from app.pipeline.s3_build import run as s3_build_run
 from app.pipeline.s3_build import segments as s3_segments
 from app.pipeline.s4_director import run as s4_director_run
+from app.pipeline.s5_package import run as s5_package_run
 
 logger = logging.getLogger("app.pipeline.orchestrator")
 
@@ -37,13 +38,14 @@ class StageDef:
 STAGES: list[StageDef] = [
     StageDef("source_check", 0.02, s1_source_check.run, "source_info.json"),
     StageDef("audio_download", 0.05, s1_download.run, "audio.wav"),
-    StageDef("transcribe", 0.20, s1_transcribe.run, "transcript.json"),
-    StageDef("nominate", 0.08, s2_nominate.run, "candidates.json"),
-    StageDef("judge", 0.08, s2_judge.run, "judged.json"),
+    StageDef("transcribe", 0.18, s1_transcribe.run, "transcript.json"),
+    StageDef("nominate", 0.07, s2_nominate.run, "candidates.json"),
+    StageDef("judge", 0.07, s2_judge.run, "judged.json"),
     StageDef("plan", 0.04, s2_planner.run, "plan.json"),
-    StageDef("segments", 0.12, s3_segments.run, "segments.json"),
+    StageDef("segments", 0.10, s3_segments.run, "segments.json"),
     StageDef("build", 0.23, s3_build_run, "build_done.json"),
-    StageDef("direct", 0.18, s4_director_run, "direct_done.json"),
+    StageDef("direct", 0.16, s4_director_run, "direct_done.json"),
+    StageDef("package", 0.08, s5_package_run, "package_done.json"),
 ]
 
 

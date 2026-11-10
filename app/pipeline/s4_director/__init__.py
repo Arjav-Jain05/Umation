@@ -68,3 +68,7 @@ def run(ctx: JobContext) -> None:
             # Clip failure is isolated per 06 s12
             with get_conn(ctx.db_path) as conn:
                 update_clip(ctx.job_id, clip.id, conn=conn, error=str(e))
+
+    ctx.write_artifact("direct_done.json", {"schema_version": 1, "status": "done", "clips": total})
+    logger.info("[%s] Completed Stage 4 (direct) for %d clips", ctx.job_id, total)
+
