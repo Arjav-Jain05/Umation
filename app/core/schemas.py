@@ -246,6 +246,39 @@ class WordsClipArtifact(ArtifactModel):
     words: list[WordClip] = Field(default_factory=list)
 
 
+class CutInterval(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    s: float
+    e: float
+    dur: float
+
+
+class CutsArtifact(ArtifactModel):
+    """Artifact: clips/<clip_id>/cuts.json"""
+    clip_id: str
+    intervals: list[CutInterval] = Field(default_factory=list)
+    total_source_duration: float = 0.0
+    total_cut_duration: float = 0.0
+    removed_duration: float = 0.0
+    removed_pct: float = 0.0
+
+
+class LayoutArtifact(ArtifactModel):
+    """Artifact: clips/<clip_id>/layout.json"""
+    clip_id: str
+    layout: str = Field(description="gameplay | talking_head | facecam")
+    confidence: float = 1.0
+    cam_rect: list[float] | None = None  # [x, y, w, h] normalized
+    samples_count: int = 0
+
+
+class QAReport(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    passed: bool
+    failures: list[str] = Field(default_factory=list)
+    metrics: dict[str, Any] = Field(default_factory=dict)
+
+
 # --- 5. Director Artifacts (Stage 4) ---
 
 class EditEvent(BaseModel):

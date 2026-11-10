@@ -1,0 +1,46 @@
+# 9:16 Vertical video canvas and layout pixel specifications
+canvas:
+  width: 1080
+  height: 1920
+
+safe_zone:
+  top: 220
+  bottom: 420
+  left: 60
+  right: 60
+  right_platform_extra: 100
+
+layouts:
+  gameplay:
+    foreground:
+      width: 1080
+      height: 608
+      x: 0
+      y: 560
+    caption_anchor_y: 1330
+    hook_card_y_min: 300
+    hook_card_y_max: 520
+    part_label_y: 240
+
+  talking_head:
+    crop_aspect: 0.5625  # 9/16
+    caption_anchor_y: 1250
+    hook_card_y_min: 240
+    hook_card_y_max: 460
+    part_label_y: 240
+
+  facecam:
+    gameplay_panel:
+      width: 1080
+      height: 608
+      x: 0
+      y: 300
+    cam_panel:
+      width: 1080
+      height: 560
+      x: 0
+      y: 930
+    caption_anchor_y: 915
+    hook_card_y_min: 220
+    hook_card_y_max: 290
+    part_label_y: 220
