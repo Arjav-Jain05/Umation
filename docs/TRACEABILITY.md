@@ -17,17 +17,17 @@ One row per requirement from `.agents/skills/shorts-engine/SKILL.md` section 2. 
 | R11 | Animated word-by-word captions in safe zone | 05 | captions.py, config/layout.yaml | test_captions.py | `pytest tests/test_captions.py`: 4 passed (ASS/SRT validation + anchors) | DONE |
 | R12 | AI director: zoom, hook card, arrows, emoji, progress, part label, SFX | 06 | s4_director/*, effects/* | test_edit_schema.py, test_effects.py, test_director_fallback.py | `pytest tests/test_edit_schema.py tests/test_effects.py tests/test_director_fallback.py`: 14 passed | DONE |
 | R13 | Arrows point at the correct thing (vision-located, verified) | 06 | target_locator.py, tracker.py | test_locator_parse.py | `pytest tests/test_locator_parse.py`: 4 passed (safe zone, area, conversion) | DONE |
-| R14 | Generated thumbnail referencing topic, never a video frame | 07 | thumbnail_*.py | test_thumbnail | | TODO |
-| R15 | 3 titles, description, hashtags, tags/SEO | 07 | metadata.py | test_metadata | | TODO |
-| R16 | Mandatory credit block | 07, 10 | credit.py | test_credit | | TODO |
+| R14 | Generated thumbnail referencing topic, never a video frame | 07 | thumbnail_*.py | test_thumbnail.py | `pytest tests/test_thumbnail.py`: 2 passed (sizes 1280x720, 1080x1920, anti-frame rejection) | DONE |
+| R15 | 3 titles, description, hashtags, tags/SEO | 07 | metadata.py | test_metadata.py | `pytest tests/test_metadata.py`: 3 passed (3 titles, <=70 chars, word-bounded, hashtags) | DONE |
+| R16 | Mandatory credit block | 07, 10 | credit.py | test_credit.py | `pytest tests/test_credit.py`: 3 passed (fields, links, missing channel, zero fair-use claims) | DONE |
 | R17 | Fair-use risk flags per clip | 10 | risk.py, planner.py | test_risk.py | `pytest tests/test_risk.py`: 4 passed | DONE |
 | R18 | Review screen: preview, tier, edit text, approve/reject, copy, download | 08 | web/js/job.js, editor.js | manual + API tests | | TODO |
-| R19 | Output folder per clip with everything needed to upload | 02, 07 | package.py | test_package | | TODO |
+| R19 | Output folder per clip with everything needed to upload | 02, 07 | package.py, app/api/export.py | test_package.py, test_export_results.py | `pytest tests/test_package.py`: 9 files + checklist pass; streaming zip export | DONE |
 | R20 | Handles 8-hour VODs without filling the disk | 03 | download.py, chunker.py | test_chunker.py | 20-min chunks, 16k mono wav download guard | DONE |
 | R21 | Gemini rate limits, caching, retries | 02 | gemini_client.py, cache.py | test_gemini_client.py | `pytest tests/test_gemini_client.py`: 5 passed | DONE |
 | R22 | Windows power, GPU memory, disk-space safety | 01 | power.py, transcribe.py, source_check.py | test_m0.py, test_source_check.py | SetThreadExecutionState + VRAM release + disk check | DONE |
-| R23 | Results log feeding calibration | 09 | results.py, calibrate_scoring.py | | | TODO |
-| R24 | Tests and measurable acceptance gates | 09 | tests/* | test_*.py | `pytest -v`: 104 passed in 23.51s; `ruff check .`: clean; `check_env.py`: 14 PASS | DONE (M0 + M1 + M2 + M3 pass) |
+| R23 | Results log feeding calibration | 09 | results.py, calibrate_scoring.py | test_export_results.py | `pytest tests/test_export_results.py`: 2 passed; Spearman rank + grid search | DONE |
+| R24 | Tests and measurable acceptance gates | 09 | tests/* | test_*.py | `pytest`: 115 passed in 23.79s; `ruff check .`: clean; `check_env.py`: 14 PASS | DONE (M0 + M1 + M2 + M3 + M4 pass) |
 | R25 | Fast lane for release-week speed | 04, 09 | judge.py, orchestrator.py | | | TODO |
 | R26 | GTA 6 domain vocabulary and boosts | 04 | glossary_gta6.yaml, blend.py | test_signals.py, test_blend.py | Topical hits count and +5 score boost | DONE |
 | R27 | Profanity masking in captions | 05 | captions.py, config/profanity.yaml | test_captions.py | `pytest tests/test_captions.py`: profanity masked with '*' | DONE |

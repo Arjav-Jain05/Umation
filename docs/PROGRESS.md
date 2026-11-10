@@ -97,8 +97,20 @@ HTTP Port                 | PASS     | 127.0.0.1:8000 is free                   
 - [x] M1 ingest, selection, basic UI: completed, 62/62 tests pass, ruff clean, server + fixtures verified (approved by user, tagged m1-pass)
 - [x] M2 build clips: completed, 86/86 tests pass, ruff clean, check_env clean 14/14, verified NVENC loudnorm render + QA checks (tagged m2-pass)
 - [x] M3 director and effects: completed, 104/104 tests pass, ruff clean, check_env clean 14/14, full overlay suite & compositor verified
-- [ ] M4 packaging, thumbnails, results: gate passed, user approved
+- [x] M4 packaging, thumbnails, results: completed, 115/115 tests pass, ruff clean, check_env clean 14/14, full checklist & anti-frame verified
 - [ ] M5 review editor and polish: gate passed, user approved
+
+### Milestone M4 Deliverables & Verification
+1. **Config & Prompts**: `prompts/metadata_text.md` (verbatim from 07 s1), `prompts/thumbnail_concept.md` (verbatim from 07 s6).
+2. **Mandatory Credit Block**: `app/pipeline/s5_package/credit.py` (07 s5, N6; short/long forms, missing channel fallback, absolute guarantee against 'fair use' or 'no infringement' claims).
+3. **Metadata Generator & Validator**: `app/pipeline/s5_package/metadata.py` (titles <= 70 chars word boundary, single punct rule, profanity masking, YouTube 5000 chars, Instagram 2200 chars, deterministic fallback).
+4. **Thumbnail Concept & Art Generation**: `app/pipeline/s5_package/thumbnail_concept.py` (1-3 words ALL CAPS, deterministic fallback), `app/pipeline/s5_package/thumbnail_generate.py` (Tier 1 Gemini, Tier 2 SDXL, Tier 3 Pillow synthwave art; 16x16 perceptual average hash with Hamming distance > 40/256 against 12 sample frames for anti-frame guarantee per N9).
+5. **Thumbnail Compositor**: `app/pipeline/s5_package/thumbnail_compose.py` (`compose_16x9` 1280x720, `compose_9x16` 1080x1920 with 1080x1350 central safe zone, Anton font auto-fit, 14px black stroke, drop shadow, contrast check against background luminance with `rgba(0,0,0,0.45)` dark box).
+6. **Packaging Engine**: `app/pipeline/s5_package/package.py` and `__init__.py` (packages all 9 required files into `output/<slug>-<video_id>/<clip_id>_<tier>[_partKofN]/`, executes full 07 s9 checklist, updates DB `folder` and `status='packaged'`, emits SSE `clip_update`).
+7. **Export & Results APIs**: `app/api/export.py` (`GET /api/clips/{job}/{clip}/zip` streaming zip, `POST .../open-folder`), `app/api/results.py` (`POST .../results`, `GET /api/results/summary`). Mounted in `app/main.py`.
+8. **Scoring Calibration**: `scripts/calibrate_scoring.py` (Spearman rank-order correlation, 30-sample threshold, grid-search weights, `.bak` backup safety).
+9. **Evidence**: `pytest`: 115 passed in 23.79s; `ruff check .`: All checks passed; `check_env.py`: 14 PASS, 0 FAIL.
+
 
 ### Milestone M3 Deliverables & Verification
 1. **Config & Prompts**: `config/effects.yaml` (density rules verbatim from 06 s3), `prompts/{director_edit_list,locate_target,verify_target}.md`.
@@ -129,7 +141,8 @@ HTTP Port                 | PASS     | 127.0.0.1:8000 is free                   
 ## Log (newest first)
 | Date | Milestone/module | What was done | Evidence | Unverified / open issues |
 |---|---|---|---|---|
-| 2026-11-10 | M1 complete | Implemented full M1 ingest, selection, worker, orchestrator, and web dashboard: `config/{scoring,glossary_gta6,source_policy}.yaml`, `prompts/{nominate_candidates,judge_candidate,plan_parts}.md`, `app/core/{cache,power,events,gemini_client,worker}.py`, `app/utils/{timecode,text,ffmpeg}.py`, `app/pipeline/context.py`, `app/pipeline/s1_ingest/{source_check,download,tidy_transcript,transcribe}.py`, `app/pipeline/s2_select/{chunker,refine,signal_heatmap,signal_audio,signal_speech,blend,risk,part_splitter,nominate,judge,planner}.py`, `app/pipeline/orchestrator.py`, `app/api/jobs.py`, `web/{index.html,job.html,js/api.js,js/home.js,js/job.js}`, `scripts/make_fixtures.py`, `scripts/dev_smoke_test.py`. Implemented 14 test modules in `tests/`. | `pytest -v`: 62 passed in 1.05s; `ruff check .`: All checks passed; `check_env.py`: 14 PASS; `make_fixtures.py`: synthetic.mp4, heatmap_100.json, gemini JSON fixtures generated. | None. At M1 gate waiting for user approval. |
+| 2026-11-10 | M4 complete | Implemented Stage 5 packaging, metadata generator, credit block builder, thumbnail concept/generate/compose with anti-frame guarantee, package folder & checklist, streaming zip export, results API, calibration script. | `pytest`: 115 passed in 23.79s; `ruff check .`: All checks passed; `check_env.py`: 14 PASS, 0 FAIL. | Ready for M5 review editor & polish. |
+| 2026-11-10 | M3 complete | Implemented Stage 4 AI director, edit schema validator, vision target locator & CSRT tracker, 10 visual & audio effects, compositor with NVENC/x264 pipes, SFX mixer, and orchestrator integration. | `pytest`: 104 passed in 23.51s; `ruff check .`: All checks passed; `check_env.py`: 14 PASS. | Approved by user, tagged m3-pass. |
 | 2026-11-10 | M0 complete | Scaffolded project: `pyproject.toml`, `.gitignore`, `start.bat`, `requirements.lock`, `README.md`. Implemented `config/settings.py`, `app/core/{paths,errors,db,models,schemas}.py`, `app/utils/logging_setup.py`, `app/api/system.py`, `app/main.py`, `web/{index.html,css/style.css}`, `scripts/update_ytdlp.py`. Created test suite `tests/test_m0.py`. Ran ruff and pytest. Probed live server. | `pytest -v`: 10 passed; `ruff check .`: All checks passed; `check_env.py`: 14 PASS; probe `/api/health`: 200 `{"ok":true,"version":"1.0.0"}`; probe `/web/index.html`: 200. | None. At M0 gate waiting for user approval. |
 | 2026-11-10 | Phase 2 complete | Vetted and installed 8 skills into `.agents/skills/`: fastapi, ffmpeg, pytest, sqlite, ruff, pydantic, git-commit-pro, gemini-api-dev. Logged in `INSTALLED-SKILLS.md`. | Verified SKILL.md in all 8 directories. | Ready for Milestone M0. |
 | 2026-11-10 | Phase 1 complete | User set Gemini key in `.env`. All 14 checks in `check_env.py` PASS with 0 FAIL, 0 WARN. | Full table pasted above. | Ready for Phase 2 skills. |
