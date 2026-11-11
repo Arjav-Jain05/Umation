@@ -1,0 +1,70 @@
+# Local model fallback chains per task (Ollama localhost:11434)
+# Spec: docs/SPEC.md section 7
+
+chains:
+  clip_proposal:
+    - model: "qwen3.5:9b"
+      num_ctx: 4096
+      temperature: 0.2
+      think: false
+    - model: "gemma4:e4b"
+      num_ctx: 4096
+      temperature: 0.2
+      think: false
+    - model: "qwen2.5:7b"
+      num_ctx: 4096
+      temperature: 0.2
+      think: false
+    - model: "qwen3.5:4b"
+      num_ctx: 4096
+      temperature: 0.2
+      think: false
+
+  critic:
+    - model: "qwen3.5:9b"
+      num_ctx: 4096
+      temperature: 0.3
+      think: true
+    - model: "gemma4:e4b"
+      num_ctx: 4096
+      temperature: 0.3
+      think: true
+    - model: "qwen3.5:4b"
+      num_ctx: 4096
+      temperature: 0.3
+      think: false
+
+  arc_stitching:
+    - model: "qwen3.5:9b"
+      num_ctx: 4096
+      temperature: 0.2
+      think: false
+
+  rerank:
+    judges:
+      - model: "qwen3.5:9b"
+        num_ctx: 4096
+        temperature: 0.1
+        think: false
+      - model: "gemma4:e4b"
+        num_ctx: 4096
+        temperature: 0.1
+        think: false
+
+  metadata:
+    - model: "qwen3.5:9b"
+      num_ctx: 4096
+      temperature: 0.3
+      think: false
+
+  title_judge:
+    - model: "qwen3.5:9b"
+      num_ctx: 4096
+      temperature: 0.2
+      think: false
+
+  thumbnail_prompt:
+    - model: "qwen3.5:9b"
+      num_ctx: 4096
+      temperature: 0.4
+      think: false

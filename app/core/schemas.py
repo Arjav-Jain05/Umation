@@ -350,6 +350,7 @@ class Metadata(ArtifactModel):
 class JobOptions(BaseModel):
     model_config = ConfigDict(extra="ignore")
     min_tier: str = Field(default="C", description="Minimum tier threshold: A | B | C")
+    quality_threshold: float | None = Field(default=None, description="Direct numeric score threshold (0-100)")
     max_clip_s: int = Field(default=60, description="Max clip duration in seconds")
     layout: str = Field(default="auto", description="auto | gameplay | facecam | talking_head")
     effects: bool = Field(default=True, description="Enable AI director and effects")
@@ -357,6 +358,7 @@ class JobOptions(BaseModel):
     fast_mode: bool = Field(default=False, description="Batch 6 instead of 4 candidates")
     fast_lane: bool = Field(default=False, description="Fast lane mode: batch 6 instead of 4 candidates")
     max_height: int = Field(default=1080, description="Video download resolution height")
+    max_source_height: int | None = Field(default=None, description="Alias for max_height")
 
 
 class JobCreate(BaseModel):

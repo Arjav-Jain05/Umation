@@ -2,6 +2,17 @@
 
 from __future__ import annotations
 
+# Compatibility fix for newer PyAV (v14+) where metadata_errors was removed from av.open
+try:
+    import av
+    _orig_av_open = av.open
+    def _compat_av_open(*args, **kwargs):
+        kwargs.pop("metadata_errors", None)
+        return _orig_av_open(*args, **kwargs)
+    av.open = _compat_av_open
+except Exception:
+    pass
+
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 

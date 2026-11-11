@@ -258,7 +258,12 @@ def generate_metadata(
     )
 
     try:
-        raw_out = ctx.gemini.call_json(prompt, schema=RawMetadataOut, system_instruction="You write viral YouTube Shorts metadata.")
+        raw_out = ctx.gemini.generate_json(
+            prompt,
+            schema_model=RawMetadataOut,
+            system_instruction="You write viral YouTube Shorts metadata.",
+            task="metadata",
+        )
         return validate_and_fix_metadata(raw_out, clip=clip, source_info=source_info, domain="gta6")
     except Exception as e:
         logger.warning("[%s] Gemini metadata generation failed: %s; using template fallback", ctx.job_id, e)

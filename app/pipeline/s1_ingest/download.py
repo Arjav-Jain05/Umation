@@ -46,6 +46,22 @@ def download_audio(ctx: JobContext) -> Path:
     source_info = ctx.read_artifact("source_info.json", SourceInfo)
     _check_disk_space(ctx.work_dir, source_info.duration_s, ctx.settings.min_free_gb)
 
+    # Local file audio extraction
+    if Path(source_info.url).is_file():
+        ctx.progress("audio_download", 0.3, "Extracting 16kHz mono audio from local file...")
+        from app.utils.ffmpeg import run_ffmpeg
+        cmd = [
+            "-i", source_info.url,
+            "-vn",
+            "-ar", "16000",
+            "-ac", "1",
+            "-c:a", "pcm_s16le",
+            str(final_wav),
+        ]
+        run_ffmpeg(cmd, check=True)
+        ctx.progress("audio_download", 1.0, f"Extracted audio: {final_wav.name}")
+        return final_wav
+
     import yt_dlp
 
     ctx.progress("audio_download", 0.05, "Starting audio stream download from YouTube...")

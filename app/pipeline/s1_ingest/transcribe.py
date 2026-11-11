@@ -10,6 +10,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+# Compatibility fix for newer PyAV (v14+) where metadata_errors was removed from av.open
+try:
+    import av
+    _orig_av_open = av.open
+    def _compat_av_open(*args: Any, **kwargs: Any) -> Any:
+        kwargs.pop("metadata_errors", None)
+        return _orig_av_open(*args, **kwargs)
+    av.open = _compat_av_open
+except Exception:
+    pass
+
 from app.core.errors import NoCandidates, TranscribeFailed
 from app.core.schemas import Transcript, Word
 from app.pipeline.context import JobContext
@@ -165,14 +176,27 @@ def run(ctx: JobContext) -> None:
     try:
         from faster_whisper import WhisperModel
 
+        model_target = ctx.settings.whisper_model
+        whisper_root = ctx.settings.weights_dir / "whisper"
+        if whisper_root.exists():
+            for cand in [
+                whisper_root / f"models--Systran--faster-whisper-{ctx.settings.whisper_model}",
+                whisper_root / "models--Systran--faster-whisper-large-v3",
+            ]:
+                if cand.exists():
+                    snapshots = list((cand / "snapshots").glob("*"))
+                    if snapshots:
+                        model_target = str(snapshots[0])
+                        break
+
         logger.info(
             "Loading WhisperModel(%s, device=%s, compute_type=%s)",
-            ctx.settings.whisper_model,
+            model_target,
             ctx.settings.whisper_device,
             ctx.settings.whisper_compute,
         )
         model = WhisperModel(
-            ctx.settings.whisper_model,
+            model_target,
             device=ctx.settings.whisper_device,
             compute_type=ctx.settings.whisper_compute,
         )

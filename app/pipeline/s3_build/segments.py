@@ -96,7 +96,21 @@ def download_segment(
     max_height: int = 1080,
     is_full: bool = False,
 ) -> Path:
-    """Download single segment using yt-dlp with range filtering or full stream."""
+    """Download single segment using yt-dlp or slice from local file."""
+    if Path(url).is_file():
+        from app.utils.ffmpeg import run_ffmpeg
+        out_mkv = out_path.with_suffix(".mkv")
+        cmd = [
+            "-ss", f"{seg.s:.3f}",
+            "-to", f"{seg.e:.3f}",
+            "-i", url,
+            "-c:v", "copy",
+            "-c:a", "copy",
+            str(out_mkv),
+        ]
+        run_ffmpeg(cmd, check=True)
+        return out_mkv
+
     import yt_dlp
 
     format_selector = (
@@ -155,7 +169,7 @@ def run(ctx: JobContext) -> None:
     segments = plan_segments(plan.clips, source_info.duration_s, small_video_min=40)
     is_full = len(segments) == 1 and segments[0].s == 0.0 and segments[0].e >= source_info.duration_s - 1.0
 
-    max_h = ctx.options.max_source_height or 1080
+    max_h = getattr(ctx.options, "max_source_height", None) or getattr(ctx.options, "max_height", 1080) or 1080
 
     for idx, seg in enumerate(segments):
         ctx.check_cancel()

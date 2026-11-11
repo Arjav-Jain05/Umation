@@ -64,14 +64,24 @@ class TranscribeFailed(AppError):
         super().__init__("TRANSCRIBE_FAILED", message, hint)
 
 
-class GeminiUnavailable(AppError):
-    def __init__(self, message: str = "Gemini API unavailable after max retries") -> None:
-        super().__init__("GEMINI_UNAVAILABLE", message, "Check internet connectivity and Gemini status")
+class LocalModelUnavailable(AppError):
+    def __init__(self, message: str = "Local Ollama model unavailable", hint: str | None = None) -> None:
+        super().__init__("LOCAL_MODEL_UNAVAILABLE", message, hint or "Ensure Ollama service is running on localhost:11434")
 
 
-class GeminiQuotaExceeded(AppError):
-    def __init__(self, message: str = "Gemini daily API quota reached") -> None:
-        super().__init__("GEMINI_QUOTA_EXCEEDED", message, "Resume job tomorrow or switch API key")
+class AllLocalModelsFailed(AppError):
+    def __init__(self, message: str = "All local models in task chain failed", hint: str | None = None) -> None:
+        super().__init__("ALL_LOCAL_MODELS_FAILED", message, hint or "Check model tags with 'ollama list' and GPU memory")
+
+
+class GeminiUnavailable(LocalModelUnavailable):
+    def __init__(self, message: str = "Local model unavailable after retries", hint: str | None = None) -> None:
+        super().__init__(message, hint)
+
+
+class GeminiQuotaExceeded(AllLocalModelsFailed):
+    def __init__(self, message: str = "Local model execution halted", hint: str | None = None) -> None:
+        super().__init__(message, hint)
 
 
 class BadModelOutput(AppError):
