@@ -149,14 +149,19 @@ class LocalModelManager:
                         continue
                     errors.append(f"{model}: {parse_err}")
 
-                except MemoryError as oom_err:
-                    logger.warning("CUDA OOM / memory error on %s: %s. Unloading and reducing context.", model, oom_err)
-                    self.provider.unload_model(model)
-                    if num_ctx > 2048:
-                        num_ctx = 2048
-                        continue
-                    errors.append(f"{model} OOM: {oom_err}")
-                    break
+                except (MemoryError, RuntimeError) as oom_err:
+                    if isinstance(oom_err, MemoryError) or "out of memory" in str(oom_err).lower():
+                        logger.warning("CUDA OOM / memory error on %s: %s. Unloading and reducing context.", model, oom_err)
+                        self.provider.unload_model(model)
+                        if num_ctx > 2048:
+                            num_ctx = 2048
+                            continue
+                        errors.append(f"{model} OOM: {oom_err}")
+                        break
+                    else:
+                        logger.warning("Model %s failed on task %s: %s", model, task, oom_err)
+                        if attempt == 1:
+                            errors.append(f"{model}: {oom_err}")
 
                 except Exception as exc:
                     logger.warning("Model %s failed on task %s: %s", model, task, exc)

@@ -945,6 +945,158 @@ def run_phase_3_checks() -> list[GateCheckResult]:
     ]
 
 
+def check_phase_4_manager_failure_recovery() -> GateCheckResult:
+    """Verify LocalModelManager failure handling (OOM context reduction, retry backoff, model fallback)."""
+    t0 = time.time()
+    res = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "tests/test_phase_4_multi_model.py",
+            "-k",
+            "test_manager_fallback_on_connection_failure or test_manager_oom_context_reduction or test_manager_all_models_fail",
+        ],
+        cwd=str(WORKSPACE_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    dur = time.time() - t0
+    if res.returncode == 0:
+        return GateCheckResult(
+            phase=4,
+            name="Model Manager Failure Handling",
+            status="PASS",
+            output="OOM context reduction, retry backoff, and model fallback verified.",
+            duration_s=dur,
+        )
+    return GateCheckResult(
+        phase=4,
+        name="Model Manager Failure Handling",
+        status="FAIL",
+        output=f"Test failed: {res.stderr or res.stdout}",
+        duration_s=dur,
+    )
+
+
+def check_phase_4_proposer_agreement() -> GateCheckResult:
+    """Verify multi-proposer candidate merging and agreement counting (>50% time overlap)."""
+    t0 = time.time()
+    res = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "tests/test_phase_4_multi_model.py",
+            "-k",
+            "test_multi_proposer_merging_and_agreement",
+        ],
+        cwd=str(WORKSPACE_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    dur = time.time() - t0
+    if res.returncode == 0:
+        return GateCheckResult(
+            phase=4,
+            name="Multi-Proposer Agreement (>50% Overlap)",
+            status="PASS",
+            output="Multi-proposer merging, dedup, and agreement count (>50% overlap) verified.",
+            duration_s=dur,
+        )
+    return GateCheckResult(
+        phase=4,
+        name="Multi-Proposer Agreement (>50% Overlap)",
+        status="FAIL",
+        output=f"Test failed: {res.stderr or res.stdout}",
+        duration_s=dur,
+    )
+
+
+def check_phase_4_rerank_position_bias() -> GateCheckResult:
+    """Verify Layer 4 head-to-head reranker cancels position bias across shuffled batch tournaments."""
+    t0 = time.time()
+    res = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "tests/test_phase_4_multi_model.py",
+            "-k",
+            "test_layer_4_rerank_position_bias",
+        ],
+        cwd=str(WORKSPACE_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    dur = time.time() - t0
+    if res.returncode == 0:
+        return GateCheckResult(
+            phase=4,
+            name="Head-to-Head Rerank Position-Bias Check",
+            status="PASS",
+            output="Tournament rerank proved invariant to candidate input presentation order.",
+            duration_s=dur,
+        )
+    return GateCheckResult(
+        phase=4,
+        name="Head-to-Head Rerank Position-Bias Check",
+        status="FAIL",
+        output=f"Test failed: {res.stderr or res.stdout}",
+        duration_s=dur,
+    )
+
+
+def check_phase_4_ranker_training() -> GateCheckResult:
+    """Verify calibrated personal ranker training on feedback ratings."""
+    t0 = time.time()
+    try:
+        from scripts.train_ranker import train_ranker
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            test_m = Path(tmp_dir) / "test_ranker.json"
+            summary = train_ranker(out_model_path=test_m)
+            dur = time.time() - t0
+            if summary.get("train_accuracy", 0.0) >= 0.70 and "feature_importances" in summary:
+                return GateCheckResult(
+                    phase=4,
+                    name="Calibrated Ranker Training",
+                    status="PASS",
+                    output=f"Ranker trained with {summary['train_accuracy']:.1%} accuracy ({summary['model_type']}) in {dur:.2f}s",
+                    duration_s=dur,
+                )
+            return GateCheckResult(
+                phase=4,
+                name="Calibrated Ranker Training",
+                status="FAIL",
+                output=f"Ranker returned unexpected summary: {summary}",
+                duration_s=dur,
+            )
+    except Exception as exc:
+        return GateCheckResult(
+            phase=4,
+            name="Calibrated Ranker Training",
+            status="FAIL",
+            output=f"Ranker training error: {exc}",
+            duration_s=time.time() - t0,
+        )
+
+
+def run_phase_4_checks() -> list[GateCheckResult]:
+    return [
+        check_phase_4_manager_failure_recovery(),
+        check_phase_4_proposer_agreement(),
+        check_phase_4_rerank_position_bias(),
+        check_phase_4_ranker_training(),
+    ]
+
+
 # =====================================================================
 # Main runner
 # =====================================================================
@@ -975,6 +1127,8 @@ def main() -> int:
             results = run_phase_2_checks()
         elif phase == 3:
             results = run_phase_3_checks()
+        elif phase == 4:
+            results = run_phase_4_checks()
         else:
             print(f"[INFO] Phase {phase} gate checks not yet activated.")
             results = []

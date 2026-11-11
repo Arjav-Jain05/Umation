@@ -33,3 +33,12 @@ This file documents every decision, modification, default choice, and replaced c
 - **Layer 6 Dynamic Fusion**: Implemented `app/pipeline/s2_select/fusion.py` calculating the multi-signal quality score with automatic dynamic weight redistribution when optional signals are missing.
 - **Profiles**: Added `profiles/default.yaml` and `profiles/gaming_gta6.yaml`.
 - **Automated Verification**: Created `tests/test_phase_3_signals.py` (10 tests passing) and implemented Phase 3 gate checks in `scripts/selftest.py` (4 PASS, 0 FAIL).
+
+## Phase 4: Multi-Model Quality
+- **Hardened Model Manager**: Updated `llm/manager.py` with automatic context reduction upon CUDA OOM (4096 -> 2048), exponential retry backoff with jitter, schema repair retries with error feedback, and sequential fallback across model chains defined in `config/models.yaml`.
+- **Multi-Proposer Agreement**: Added `agreement_count` and `proposers` to `Candidate` in `app/core/schemas.py`. Candidates proposed by multiple models overlapping >50% increment `agreement_count = 2`, while novel candidates from either model are preserved.
+- **Layer 3 Critic & Arc Stitcher**: Implemented `app/pipeline/s2_select/critic.py` evaluating candidates on hook strength, standalone clarity, and payoff delivery. Added `stitch_story_arcs` grouping narrative arcs into Part 1/2/3 splits.
+- **Layer 4 Head-to-Head Tournament Reranker**: Implemented `app/pipeline/s2_select/rerank.py` executing shuffled tournament comparisons across batches of 5-6 candidates to eliminate presentation position bias.
+- **Calibrated Personal Ranker**: Implemented `app/core/feedback.py` logging thumbs up/down into `feedback/ratings.jsonl` and `scripts/train_ranker.py` training a `HistGradientBoostingClassifier` with feature importance audits.
+- **Model Bake-Off Harness**: Implemented `scripts/bakeoff.py` benchmarking candidate LLMs on prompt validity rate, latency, token throughput, and Spearman rank correlation.
+- **Automated Verification**: Created `tests/test_phase_4_multi_model.py` (7 tests passing) and added Phase 4 gate checks to `scripts/selftest.py` (4 PASS, 0 FAIL).

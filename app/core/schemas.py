@@ -124,6 +124,8 @@ class Candidate(BaseModel):
     e: float
     reason: str
     llm_hint_score: float = 0.0
+    agreement_count: int = 1
+    proposers: list[str] = Field(default_factory=list)
 
 
 class CandidatesArtifact(ArtifactModel):
