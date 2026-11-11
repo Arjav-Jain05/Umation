@@ -7,7 +7,7 @@ Root weights directory strictly: `D:\Open_Source_Weights`
 
 | Layer | Model Name / ID | Purpose | Source / URL | Format / Quant | Physical Local Path | Size (Disk) | Est / Peak VRAM | License | Status |
 |---|---|---|---|---|---|---|---|---|---|
-| **L0** | faster-whisper `large-v3-turbo` | Audio Transcription (word timestamps) | mobiuslabsgmbh / HuggingFace | CTranslate2 float16 | `D:\Open_Source_Weights\whisper\models--mobiuslabsgmbh--faster-whisper-large-v3-turbo` | 1.6 GB | ~3.8 GB (unloaded after) | MIT | **DOWNLOADING (curl)** |
+| **L0** | faster-whisper `large-v3-turbo` | Audio Transcription (word timestamps) | mobiuslabsgmbh / HuggingFace | CTranslate2 float16 | `D:\Open_Source_Weights\whisper\models--mobiuslabsgmbh--faster-whisper-large-v3-turbo` | 1.61 GB | ~3.8 GB (unloaded after) | MIT | **VERIFIED PASS** |
 | **L0** | faster-whisper `large-v3` | Audio Transcription (full precision backup) | Systran / HuggingFace | CTranslate2 float16 | `D:\Open_Source_Weights\whisper\models--Systran--faster-whisper-large-v3` | 3.08 GB | ~4.2 GB (unloaded after) | Apache-2.0 | **VERIFIED PASS** |
 | **L0** | faster-whisper `tiny` | Fast / CPU Fallback Transcription | Systran / HuggingFace | CTranslate2 int8 | `D:\Open_Source_Weights\whisper\models--Systran--faster-whisper-tiny` | 78 MB | < 0.5 GB | Apache-2.0 | **VERIFIED PASS** |
 | **L1** | MediaPipe BlazeFace | Face detection & facecam crop tracking | Google MediaPipe | TFLite Short Range | `D:\Open_Source_Weights\models\blaze_face_short_range.tflite` | 229 KB | 0 MB (CPU LiteRT) | Apache-2.0 | **VERIFIED PASS** |
