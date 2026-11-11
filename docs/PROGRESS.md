@@ -158,3 +158,38 @@ HTTP Port                 | PASS     | 127.0.0.1:8000 is free                   
 | 2026-11-10 | Phase 1 complete | User set Gemini key in `.env`. All 14 checks in `check_env.py` PASS with 0 FAIL, 0 WARN. | Full table pasted above. | Ready for Phase 2 skills. |
 | 2026-11-10 | Phase 1 | Installed Python 3.12, Deno 2.9.8, created venv, installed requirements, cuBLAS/cuDNN, downloaded all models/fonts. Run `check_env.py`. | Tool outputs recorded above. | Awaiting key in `.env`. |
 | 2026-11-10 | Phase 0 | Read AGENTS.md, all rules, SKILL.md, refs 01+02, all docs files. Wrote 15-line summary to PROGRESS.md. | All files confirmed readable; file listing pasted to agent context. | Resolved: MediaPipe works on 3.12; all fonts found and loaded. |
+
+
+---
+
+## Upgrade v4: Layered, Audience-Aware, Fully Local Pipeline
+Branch: `feature/final-local-layered`
+
+### Phase 0: Preflight and Environment (PASS)
+- Status: `PASS`
+- Started: 2026-11-11T03:00:00
+- Completed: 2026-11-11T12:58:35
+- Automated Test Suite: `python scripts/selftest.py --phase 0` -> 4 PASS, 0 FAIL
+
+#### Checks and Real Evidence Excerpt:
+1. **Preflight Health Check** (`scripts/check_local_setup.py`):
+   - Python: 3.12.10 (PASS)
+   - NVIDIA GPU: GeForce RTX 4060 Laptop GPU, Driver 621.14, 8188 MB (PASS)
+   - Free Space on D:: 171.6 GB free (>= 60 GB target) (PASS)
+   - Environment Variables: `WEIGHTS_DIR=D:\Open_Source_Weights`, `OLLAMA_MODELS=D:\Open_Source_Weights\ollama`, `HF_HOME=D:\Open_Source_Weights\huggingface`, `TORCH_HOME=D:\Open_Source_Weights\torch`, `HF_HUB_OFFLINE=1` (PASS)
+   - FFmpeg & NVENC: `ffmpeg` with `h264_nvenc` present (PASS)
+   - Whisper CUDA: faster-whisper 1.2.1 on CUDA (1 device) (PASS)
+   - yt-dlp: 2026.10.26 (PASS)
+
+2. **Ollama Storage Location**:
+   - Model files physically stored in `D:\Open_Source_Weights\ollama\blobs` (8 blobs, 6.55 GB total).
+
+3. **Whisper CUDA 10s Transcription**:
+   - `models--Systran--faster-whisper-large-v3` loaded on RTX 4060 CUDA in 7.86s.
+   - 10-second synthetic audio transcribed in 2.97s on CUDA float16.
+   - Peak VRAM during Whisper: 3859 MB (< 7.5 GB ceiling). Model immediately released after use.
+
+4. **Ollama LLM Schema JSON Generation**:
+   - `qwen3.5:9b` (Q4_K_M, 6.6 GB) pulled and tested on Ollama `127.0.0.1:11434`.
+   - Structured JSON output returned in 2.29s: `{'status': 'success', 'confidence': 0.85, 'reasons': ['High audio volume indicates action', 'Chat excitement detected']}`.
+   - Ollama `keep_alive: 0` verified: GPU memory drops to 0 MB when idle.

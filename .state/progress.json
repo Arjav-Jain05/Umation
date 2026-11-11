@@ -1,0 +1,48 @@
+{
+  "current_phase": 1,
+  "status": "in_progress",
+  "phases": {
+    "phase_0": {
+      "status": "pass",
+      "started_at": "2026-11-11T03:00:00",
+      "completed_at": "2026-11-11T12:58:35",
+      "checks": {
+        "preflight": "pass",
+        "ollama_storage": "pass",
+        "whisper_cuda_10s": "pass",
+        "llm_json_generation": "pass"
+      },
+      "peak_vram_mb": 3859.0
+    },
+    "phase_1": {
+      "status": "in_progress",
+      "started_at": "2026-11-11T12:59:00",
+      "completed_at": null,
+      "checks": {}
+    },
+    "phase_2": {
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "checks": {}
+    },
+    "phase_3": {
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "checks": {}
+    },
+    "phase_4": {
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "checks": {}
+    },
+    "phase_5": {
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "checks": {}
+    }
+  }
+}
