@@ -15,6 +15,7 @@ except Exception:
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -102,6 +103,16 @@ def create_app() -> FastAPI:
     app.include_router(clips_router)
     app.include_router(export_router)
     app.include_router(results_router)
+
+    from app.api.jobs import RenderRequest, get_job_candidates, post_render_job
+
+    @app.get("/projects/{project_id}/candidates")
+    def get_project_candidates_alias(project_id: str) -> dict[str, Any]:
+        return get_job_candidates(project_id)
+
+    @app.post("/projects/{project_id}/render")
+    def post_project_render_alias(project_id: str, req: RenderRequest) -> dict[str, Any]:
+        return post_render_job(project_id, req)
 
     # Static mounts
     web_dir = settings.project_root / "web"

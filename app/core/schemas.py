@@ -359,6 +359,7 @@ class JobOptions(BaseModel):
     fast_lane: bool = Field(default=False, description="Fast lane mode: batch 6 instead of 4 candidates")
     max_height: int = Field(default=1080, description="Video download resolution height")
     max_source_height: int | None = Field(default=None, description="Alias for max_height")
+    caption_preset: str = Field(default="modern_box", description="modern_box | classic_yellow | minimal_shadow | cyan | yellow_box | neon_green | red_gaming")
 
 
 class JobCreate(BaseModel):

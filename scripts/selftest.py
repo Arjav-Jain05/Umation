@@ -560,6 +560,183 @@ def run_phase_1_checks() -> list[GateCheckResult]:
 
 
 # =====================================================================
+# Phase 2 Gate Checks
+# =====================================================================
+
+def check_phase_2_candidate_store() -> GateCheckResult:
+    """Verify candidate store persistence and score breakdown in SQLite."""
+    t0 = time.time()
+    try:
+        from app.core.db import get_conn, init_db
+        from app.core.models import create_job, list_candidates, upsert_candidate
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            test_db = Path(tmp_dir) / "test_store.db"
+            init_db(test_db)
+            conn = get_conn(test_db)
+            try:
+                create_job("job_chk_p2", "https://youtube.com/watch?v=store", {}, ack_fair_use=True, conn=conn)
+                upsert_candidate(
+                    {
+                        "job_id": "job_chk_p2",
+                        "id": "c01",
+                        "start_s": 15.0,
+                        "end_s": 45.0,
+                        "hook_text": "Candidate store test",
+                        "topic": "Store Verification",
+                        "llm_score": 78.0,
+                        "audio_score": 65.0,
+                        "heat_score": 70.0,
+                        "final_score": 74.5,
+                        "tier": "A",
+                        "scores_json": {"llm": 78.0, "audio": 65.0},
+                        "selected": 1,
+                    },
+                    conn=conn,
+                )
+                cands = list_candidates("job_chk_p2", conn=conn)
+            finally:
+                conn.close()
+
+            dur = time.time() - t0
+            if len(cands) == 1 and cands[0]["final_score"] == 74.5:
+                return GateCheckResult(
+                    phase=2,
+                    name="Candidate Store Persistence",
+                    status="PASS",
+                    output=f"Candidate persisted and retrieved with full score breakdown in {dur:.2f}s: {cands[0]['scores']}",
+                    duration_s=dur,
+                )
+            return GateCheckResult(
+                phase=2,
+                name="Candidate Store Persistence",
+                status="FAIL",
+                output=f"Candidate store returned unexpected result: {cands}",
+                duration_s=dur,
+            )
+    except Exception as exc:
+        return GateCheckResult(
+            phase=2,
+            name="Candidate Store Persistence",
+            status="FAIL",
+            output=f"Candidate store error: {exc}",
+            duration_s=time.time() - t0,
+        )
+
+
+def check_phase_2_slider_zero_model_calls() -> GateCheckResult:
+    """Assert moving slider triggers zero model calls via pytest test_slider_zero_model_calls."""
+    t0 = time.time()
+    res = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "tests/test_phase_2_slider.py", "-k", "test_slider_zero_model_calls"],
+        cwd=str(WORKSPACE_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    dur = time.time() - t0
+    if res.returncode == 0:
+        return GateCheckResult(
+            phase=2,
+            name="Slider Zero-Model-Calls Assertion",
+            status="PASS",
+            output="Moving quality-threshold slider filters in-memory data with ZERO model calls.",
+            duration_s=dur,
+        )
+    return GateCheckResult(
+        phase=2,
+        name="Slider Zero-Model-Calls Assertion",
+        status="FAIL",
+        output=f"Test failed: {res.stderr or res.stdout}",
+        duration_s=dur,
+    )
+
+
+def check_phase_2_caption_presets() -> GateCheckResult:
+    """Verify all 7 caption presets generate valid ASS subtitle files."""
+    t0 = time.time()
+    from app.core.schemas import WordClip
+    from app.pipeline.s3_build.captions import CAPTION_PRESETS, chunk_words, write_ass
+
+    if len(CAPTION_PRESETS) != 7:
+        return GateCheckResult(
+            phase=2,
+            name="7 Caption Presets Generation",
+            status="FAIL",
+            output=f"Expected 7 caption presets, found {len(CAPTION_PRESETS)}",
+            duration_s=time.time() - t0,
+        )
+
+    words = [
+        WordClip(i=0, w="Viral", s=0.0, e=0.5, s_clip=0.0, e_clip=0.5, p=0.99),
+        WordClip(i=1, w="Moments", s=0.5, e=1.0, s_clip=0.5, e_clip=1.0, p=0.99),
+    ]
+    chunks = chunk_words(words)
+    verified_presets = []
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        for p_name in CAPTION_PRESETS:
+            out_p = Path(tmp_dir) / f"{p_name}.ass"
+            write_ass(chunks, layout="gameplay", out_path=out_p, preset=p_name)
+            if out_p.is_file() and out_p.stat().st_size > 100:
+                verified_presets.append(p_name)
+
+    dur = time.time() - t0
+    if len(verified_presets) == 7:
+        return GateCheckResult(
+            phase=2,
+            name="7 Caption Presets Generation",
+            status="PASS",
+            output=f"All 7 presets verified: {', '.join(verified_presets)}",
+            duration_s=dur,
+        )
+    return GateCheckResult(
+        phase=2,
+        name="7 Caption Presets Generation",
+        status="FAIL",
+        output=f"Only {len(verified_presets)} / 7 presets generated successfully",
+        duration_s=dur,
+    )
+
+
+def check_phase_2_endpoints() -> GateCheckResult:
+    """Verify GET /projects/{id}/candidates and POST /projects/{id}/render endpoints."""
+    t0 = time.time()
+    res = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "tests/test_phase_2_slider.py", "-k", "test_candidates_and_render_api_endpoints"],
+        cwd=str(WORKSPACE_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    dur = time.time() - t0
+    if res.returncode == 0:
+        return GateCheckResult(
+            phase=2,
+            name="Candidates & Render API Endpoints",
+            status="PASS",
+            output="GET /projects/{id}/candidates and POST /projects/{id}/render verified with filtering & pins.",
+            duration_s=dur,
+        )
+    return GateCheckResult(
+        phase=2,
+        name="Candidates & Render API Endpoints",
+        status="FAIL",
+        output=f"Endpoints test failed: {res.stderr or res.stdout}",
+        duration_s=dur,
+    )
+
+
+def run_phase_2_checks() -> list[GateCheckResult]:
+    return [
+        check_phase_2_candidate_store(),
+        check_phase_2_slider_zero_model_calls(),
+        check_phase_2_caption_presets(),
+        check_phase_2_endpoints(),
+    ]
+
+
+# =====================================================================
 # Main runner
 # =====================================================================
 
@@ -585,6 +762,8 @@ def main() -> int:
             results = run_phase_0_checks()
         elif phase == 1:
             results = run_phase_1_checks()
+        elif phase == 2:
+            results = run_phase_2_checks()
         else:
             print(f"[INFO] Phase {phase} gate checks not yet activated.")
             results = []

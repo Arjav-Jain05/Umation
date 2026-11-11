@@ -164,6 +164,51 @@
       <p id="summary-signals" style="font-size: 13px; color: var(--muted);"></p>
     </div>
 
+    <!-- Quality Threshold Slider Panel (Phase 2 & Section 6) -->
+    <div id="slider-panel" class="card" style="display: none; padding: 18px 24px; margin-bottom: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <h2 style="font-size: 16px; margin: 0;">Quality Threshold Slider</h2>
+          <p style="color: var(--muted); font-size: 13px; margin: 2px 0 0 0;">Drag to filter candidates live. 0 model calls, instant client-side preview.</p>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span style="font-size: 13px; color: var(--muted);">Presets:</span>
+          <button id="preset-strict-btn" class="chip" data-val="80">Strict (80)</button>
+          <button id="preset-balanced-btn" class="chip active" data-val="65">Balanced (65)</button>
+          <button id="preset-loose-btn" class="chip" data-val="50">Loose (50)</button>
+          <button id="preset-suggest-btn" class="chip" style="border: 1px solid var(--accent); color: var(--accent);">Suggest (Otsu)</button>
+        </div>
+      </div>
+
+      <!-- Histogram visualization -->
+      <div id="histogram-container" style="height: 60px; display: flex; align-items: flex-end; gap: 4px; margin: 15px 0 6px 0; background: #0c0e12; padding: 4px 8px; border-radius: 6px; position: relative;">
+        <!-- Dynamic histogram bars will be rendered here -->
+      </div>
+
+      <!-- Slider input & values -->
+      <div style="display: flex; align-items: center; gap: 16px; margin: 12px 0;">
+        <input type="range" id="quality-slider" min="0" max="100" value="65" step="1" style="flex: 1; accent-color: var(--accent); cursor: pointer;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="font-size: 18px; font-weight: 700; color: var(--accent);" id="slider-val-display">65</span>
+          <span style="color: var(--muted); font-size: 13px;">/ 100</span>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 14px; border-top: 1px solid var(--panel-border); padding-top: 12px;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div style="font-size: 14px;">
+            <strong id="slider-selected-count">0</strong> clips selected
+            <span style="color: var(--muted); font-size: 13px;" id="slider-duration-display">(0.0 min)</span>
+          </div>
+          <div style="font-size: 13px; color: var(--muted);" id="slider-est-time">Est. render time: ~0s</div>
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer;">
+            <input type="checkbox" id="relative-mode-toggle"> Relative Mode (Top %)
+          </label>
+        </div>
+        <button id="render-selected-btn" class="btn btn-primary" style="font-weight: 600; padding: 6px 18px;">Render Selected</button>
+      </div>
+    </div>
+
     <!-- Filters & Bulk Actions -->
     <div id="controls-bar" class="card" style="display: none; padding: 14px 20px;">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">

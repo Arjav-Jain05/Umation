@@ -1,7 +1,9 @@
 """test_network_guard.py: Verify network guard blocks all cloud AI outbound requests."""
 
 import socket
+
 import pytest
+
 from app.core.network_guard import NetworkCallBlockedError, is_host_allowed, network_guard
 
 

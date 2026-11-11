@@ -8,6 +8,7 @@ import logging
 import shutil
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
@@ -21,8 +22,10 @@ from app.core.events import broadcaster
 from app.core.models import (
     create_job,
     get_job,
+    list_candidates,
     list_clips,
     list_jobs,
+    update_candidate_selection,
     update_job,
 )
 from app.core.schemas import ClipOut, JobCreate, JobOptions, JobOut, StageProgress
@@ -310,3 +313,174 @@ def get_job_clips(job_id: str) -> list[ClipOut]:
                 )
             )
         return out
+
+
+class RenderRequest(BaseModel):
+    threshold: float = Field(default=65.0, ge=0.0, le=100.0)
+    mode: str = Field(default="absolute", description="absolute | relative")
+    pins: list[str] = Field(default_factory=list)
+    excludes: list[str] = Field(default_factory=list)
+
+
+def compute_suggested_threshold(scores: list[float]) -> float:
+    """Compute suggested quality threshold using Otsu's method or largest gap."""
+    if not scores:
+        return 65.0
+    if len(scores) < 3:
+        return round(float(scores[0]), 1)
+
+    s_sorted = sorted(scores)
+    # Check largest gap in the 35-80 range
+    max_gap = -1.0
+    gap_thresh = 65.0
+    for i in range(len(s_sorted) - 1):
+        gap = s_sorted[i + 1] - s_sorted[i]
+        mid = (s_sorted[i + 1] + s_sorted[i]) / 2.0
+        if 35.0 <= mid <= 80.0 and gap > max_gap:
+            max_gap = gap
+            gap_thresh = round(s_sorted[i + 1], 1)
+
+    if max_gap >= 5.0:
+        return gap_thresh
+
+    # Otsu-like variance maximization
+    total = len(s_sorted)
+    current_max = 0.0
+    best_t = 65.0
+    for t in range(35, 85, 5):
+        w0 = sum(1 for s in s_sorted if s < t) / total
+        w1 = 1.0 - w0
+        if w0 == 0 or w1 == 0:
+            continue
+        mean0 = sum(s for s in s_sorted if s < t) / (w0 * total)
+        mean1 = sum(s for s in s_sorted if s >= t) / (w1 * total)
+        variance_between = w0 * w1 * ((mean0 - mean1) ** 2)
+        if variance_between > current_max:
+            current_max = variance_between
+            best_t = float(t)
+
+    return best_t
+
+
+def compute_score_histogram(scores: list[float], bin_size: int = 10) -> list[dict[str, Any]]:
+    """Compute score histogram bins with tier categorization."""
+    bins = []
+    for low in range(0, 100, bin_size):
+        high = low + bin_size
+        count = sum(1 for s in scores if (low <= s < high or (high == 100 and s == 100)))
+        tier = "S" if low >= 85 else ("A" if low >= 70 else ("B" if low >= 55 else "C"))
+        bins.append({
+            "range": f"{low}-{high}",
+            "low": low,
+            "high": high,
+            "count": count,
+            "tier": tier,
+        })
+    return bins
+
+
+@router.get("/{job_id}/candidates")
+def get_job_candidates(job_id: str) -> dict[str, Any]:
+    """Retrieve all candidates stored in SQLite with full score breakdowns and histogram."""
+    candidates = list_candidates(job_id)
+    # If no candidates in DB, attempt fallback to job plan.json
+    if not candidates:
+        plan_path = paths.job_dir(job_id) / "plan.json"
+        if plan_path.is_file():
+            try:
+                from app.core.schemas import Plan
+                plan = Plan.model_validate_json(plan_path.read_text(encoding="utf-8"))
+                for c in plan.clips:
+                    candidates.append({
+                        "job_id": job_id,
+                        "id": c.id,
+                        "start_s": c.start,
+                        "end_s": c.end,
+                        "hook_text": c.hook_text,
+                        "topic": c.topic,
+                        "llm_score": c.llm_score,
+                        "audio_score": c.audio,
+                        "heat_score": c.heat,
+                        "final_score": c.final_score,
+                        "tier": c.tier,
+                        "scores": {"llm": c.llm_score, "audio": c.audio, "heat": c.heat},
+                        "selected": 1,
+                        "pinned": 0,
+                        "excluded": 0,
+                    })
+            except Exception as e:
+                logger.warning("Could not read plan.json for candidates: %s", e)
+
+    scores = [float(c["final_score"]) for c in candidates]
+    suggested = compute_suggested_threshold(scores)
+    histogram = compute_score_histogram(scores)
+
+    return {
+        "job_id": job_id,
+        "total_candidates": len(candidates),
+        "suggested_threshold": suggested,
+        "histogram": histogram,
+        "candidates": candidates,
+    }
+
+
+@router.post("/{job_id}/render")
+def post_render_job(job_id: str, req: RenderRequest) -> dict[str, Any]:
+    """Filter candidates by threshold, pins, excludes, and execute selective rendering."""
+    candidates = list_candidates(job_id)
+    if not candidates:
+        raise HTTPException(status_code=404, detail="No candidates found for this job")
+
+    pin_set = set(req.pins)
+    ex_set = set(req.excludes)
+
+    selected_ids: list[str] = []
+    if req.mode == "relative":
+        # Keep top X% of candidates sorted by score
+        candidates_sorted = sorted(candidates, key=lambda c: float(c["final_score"]), reverse=True)
+        pct = max(0.05, min(1.0, req.threshold / 100.0))
+        target_count = max(1, int(len(candidates_sorted) * pct))
+        for idx, c in enumerate(candidates_sorted):
+            cid = c["id"]
+            if cid in ex_set:
+                is_sel = False
+            elif cid in pin_set or idx < target_count:
+                is_sel = True
+            else:
+                is_sel = False
+            if is_sel:
+                selected_ids.append(cid)
+            update_candidate_selection(job_id, cid, selected=is_sel, pinned=(cid in pin_set), excluded=(cid in ex_set))
+    else:
+        # Absolute mode: score >= threshold
+        for c in candidates:
+            cid = c["id"]
+            score = float(c["final_score"])
+            if cid in ex_set:
+                is_sel = False
+            elif cid in pin_set or score >= req.threshold:
+                is_sel = True
+            else:
+                is_sel = False
+            if is_sel:
+                selected_ids.append(cid)
+            update_candidate_selection(job_id, cid, selected=is_sel, pinned=(cid in pin_set), excluded=(cid in ex_set))
+
+    # Update job options in DB with new quality threshold
+    with get_conn() as conn:
+        job = get_job(job_id, conn=conn)
+        if job:
+            opts = json.loads(job["options_json"]) if isinstance(job["options_json"], str) else job["options_json"]
+            opts["quality_threshold"] = req.threshold
+            opts["threshold_mode"] = req.mode
+            update_job(job_id, conn=conn, options=opts)
+
+    logger.info("Render selection for job %s: %d / %d candidates selected", job_id, len(selected_ids), len(candidates))
+    return {
+        "ok": True,
+        "job_id": job_id,
+        "selected_count": len(selected_ids),
+        "selected_ids": selected_ids,
+        "threshold": req.threshold,
+        "mode": req.mode,
+    }

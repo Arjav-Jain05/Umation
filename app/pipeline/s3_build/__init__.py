@@ -104,6 +104,7 @@ def run(ctx: JobContext) -> None:
                 layout=layout_decision.layout,
                 out_path=clip_dir / "captions.ass",
                 mask_profanity_flag=getattr(ctx.options, "mask_profanity", True),
+                preset=getattr(ctx.options, "caption_preset", "modern_box"),
             )
             captions.write_srt(
                 caption_chunks,
