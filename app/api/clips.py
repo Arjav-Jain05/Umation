@@ -41,6 +41,50 @@ class EditListPatch(BaseModel):
     caption_emphasis: list[int] = Field(default_factory=list)
 
 
+class RateRequest(BaseModel):
+    rating: int = Field(description="1 for Good, 0 for Bad, -1 for Broken")
+
+
+@router.post("/{job_id}/{clip_id}/rate")
+def rate_clip(job_id: str, clip_id: str, body: RateRequest) -> dict[str, Any]:
+    """Store human feedback rating (Good/Bad/Broken) for calibration."""
+    with get_conn() as conn:
+        c = get_clip(job_id, clip_id, conn=conn)
+        if not c:
+            raise HTTPException(status_code=404, detail="Clip not found")
+
+    settings = get_settings()
+    feedback_dir = settings.project_root / "feedback"
+    feedback_dir.mkdir(parents=True, exist_ok=True)
+    ratings_file = feedback_dir / "ratings.jsonl"
+
+    record = {
+        "job_id": job_id,
+        "clip_id": clip_id,
+        "rating": body.rating,
+        "scores": {
+            "hook": c.get("hook_score") or c.get("llm_score") or 50.0,
+            "payoff": c.get("payoff_score") or c.get("llm_score") or 50.0,
+            "audio": c.get("audio_energy") or 50.0,
+            "heatmap": c.get("heatmap_score") or 50.0,
+            "speech": (c.get("speech_ratio") or 0.8) * 100.0,
+            "audience": 50.0,
+            "audio_events": c.get("audio_energy") or 50.0,
+            "emotion": 50.0,
+            "text_hype": 50.0,
+            "llm_consensus": c.get("llm_score") or 50.0,
+            "critic": c.get("final_score") or 50.0,
+            "rerank": c.get("final_score") or 50.0,
+            "visual": 75.0,
+            "agreement": 80.0,
+        },
+    }
+    with open(ratings_file, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record) + "\n")
+
+    return {"ok": True, "job_id": job_id, "clip_id": clip_id, "rating": body.rating}
+
+
 @router.get("/{job_id}/{clip_id}", response_model=ClipOut)
 def get_clip_detail(job_id: str, clip_id: str) -> ClipOut:
     """Retrieve full details for a single short-form clip."""

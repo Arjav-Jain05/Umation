@@ -103,3 +103,60 @@ def test_part_splitter_fallback_on_invalid_or_error():
     fallback2 = split_story(parent_clip, sentences, mock_gemini)
     assert len(fallback2) == 1
     assert fallback2[0].id == "c01"
+
+
+def test_part_splitter_rejects_under_25s_or_invalid_cliffhanger():
+    """Verify parts under 25s or with 'time ran out' reasons abort splitting and return parent clip."""
+    sentences = [
+        Sentence(id=i, s=float(i * 10), e=float(i * 10 + 9), text=f"Sentence {i}", w0=i * 4, w1=i * 4 + 3, wpm=100.0)
+        for i in range(10)
+    ]
+    parent_clip = Clip(
+        id="c02",
+        start=0.0,
+        end=99.0,
+        duration=99.0,
+        tier="A",
+        final_score=85.0,
+        llm_score=85.0,
+        hook_text="Parent Hook",
+        topic="Heist",
+        risk="low",
+        risk_flags=[],
+    )
+
+    mock_gemini = MagicMock()
+
+    # Case A: Part 1 is under 25s (0s to 19s = 19s)
+    mock_gemini.generate_json.return_value = PartSplitOut(
+        parts=[
+            StoryPartRaw(part_index=1, start_sid=0, end_sid=1, hook_text="P1", cliffhanger_type="cliffhanger", cliffhanger_reason="Suspense"),
+            StoryPartRaw(part_index=2, start_sid=2, end_sid=9, hook_text="P2"),
+        ]
+    )
+    res_a = split_story(parent_clip, sentences, mock_gemini)
+    assert len(res_a) == 1
+    assert res_a[0].id == "c02"
+
+    # Case B: Part 1 has 'time ran out' reason
+    mock_gemini.generate_json.return_value = PartSplitOut(
+        parts=[
+            StoryPartRaw(part_index=1, start_sid=0, end_sid=3, hook_text="P1", cliffhanger_type="cliffhanger", cliffhanger_reason="Time ran out here"),
+            StoryPartRaw(part_index=2, start_sid=4, end_sid=9, hook_text="P2"),
+        ]
+    )
+    res_b = split_story(parent_clip, sentences, mock_gemini)
+    assert len(res_b) == 1
+    assert res_b[0].id == "c02"
+
+    # Case C: Invalid cliffhanger type
+    mock_gemini.generate_json.return_value = PartSplitOut(
+        parts=[
+            StoryPartRaw(part_index=1, start_sid=0, end_sid=3, hook_text="P1", cliffhanger_type="random_cut", cliffhanger_reason="Something happened"),
+            StoryPartRaw(part_index=2, start_sid=4, end_sid=9, hook_text="P2"),
+        ]
+    )
+    res_c = split_story(parent_clip, sentences, mock_gemini)
+    assert len(res_c) == 1
+    assert res_c[0].id == "c02"
+

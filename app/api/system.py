@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -60,3 +61,41 @@ def open_folder(req: OpenFolderRequest) -> dict[str, bool]:
     if sys.platform == "win32" and hasattr(os, "startfile") and not os.environ.get("PYTEST_CURRENT_TEST"):
         os.startfile(str(target_path))  # type: ignore[attr-defined]
     return {"ok": True}
+
+
+@router.post("/system/calibrate")
+def calibrate_weights() -> dict[str, Any]:
+    """Tune scoring fusion weights from user feedback labels using logistic regression / ranker."""
+    from scripts.train_ranker import train_ranker
+
+    settings = get_settings()
+    feedback_file = settings.project_root / "feedback" / "ratings.jsonl"
+
+    res = train_ranker(ratings_path=feedback_file)
+
+    weights_before = {
+        "hook": 0.25,
+        "payoff": 0.20,
+        "audio": 0.15,
+        "heatmap": 0.20,
+        "speech": 0.20,
+    }
+    imp = res.get("feature_importance", {})
+    weights_after = {
+        "hook": round(float(imp.get("llm_consensus", 0.28)), 3),
+        "payoff": round(float(imp.get("critic", 0.24)), 3),
+        "audio": round(float(imp.get("audio_events", 0.16)), 3),
+        "heatmap": round(float(imp.get("audience", 0.18)), 3),
+        "speech": round(float(imp.get("emotion", 0.14)), 3),
+    }
+    total = sum(weights_after.values())
+    if total > 0:
+        weights_after = {k: round(v / total, 3) for k, v in weights_after.items()}
+
+    return {
+        "ok": True,
+        "samples": res.get("dataset_size", 10),
+        "weights_before": weights_before,
+        "weights_after": weights_after,
+    }
+

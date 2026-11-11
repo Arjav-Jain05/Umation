@@ -116,11 +116,14 @@ def create_app() -> FastAPI:
 
     # Static mounts
     web_dir = settings.project_root / "web"
+    review_dir = settings.project_root / "review"
     output_dir = settings.output_dir
     web_dir.mkdir(parents=True, exist_ok=True)
+    review_dir.mkdir(parents=True, exist_ok=True)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     app.mount("/web", StaticFiles(directory=str(web_dir), html=True), name="web")
+    app.mount("/review", StaticFiles(directory=str(review_dir), html=True), name="review")
     app.mount("/files/output", StaticFiles(directory=str(output_dir)), name="output_files")
 
     # Redirect root to web UI

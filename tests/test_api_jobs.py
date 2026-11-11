@@ -78,3 +78,53 @@ def test_job_cancel(client: TestClient):
     cancel_res = client.post(f"/api/jobs/{job_id}/cancel")
     assert cancel_res.status_code == 200
     assert cancel_res.json()["ok"] is True
+
+
+def test_review_ui_mount(client: TestClient):
+    """Verify /review static mount serves the review & calibration HTML interface."""
+    res = client.get("/review/index.html")
+    assert res.status_code == 200
+    assert "Shorts Engine - Clip Review & Calibration" in res.text
+    assert "Calibrate Scoring Weights" in res.text
+
+
+def test_rate_clip_and_calibrate_endpoint(client: TestClient):
+    """Verify rating clips and running logistic regression calibration endpoint."""
+    # 1. Create job and insert mock clip
+    from app.core.models import upsert_clip
+
+    res = client.post(
+        "/api/jobs",
+        json={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "ack_fair_use": True},
+    )
+    job_id = res.json()["job_id"]
+
+    clip_dict = {
+        "job_id": job_id,
+        "id": "c01",
+        "idx": 0,
+        "start": 10.0,
+        "end": 35.0,
+        "tier": "A",
+        "final_score": 85.0,
+        "risk": "low",
+        "status": "planned",
+    }
+    upsert_clip(clip_dict)
+
+    # 2. Rate clip as Good (1)
+    rate_res = client.post(f"/api/clips/{job_id}/c01/rate", json={"rating": 1})
+    assert rate_res.status_code == 200
+    assert rate_res.json()["ok"] is True
+    assert rate_res.json()["rating"] == 1
+
+    # 3. Test calibration endpoint
+    calib_res = client.post("/api/system/calibrate")
+    assert calib_res.status_code == 200
+    data = calib_res.json()
+    assert data["ok"] is True
+    assert "weights_before" in data
+    assert "weights_after" in data
+    assert len(data["weights_after"]) > 0
+
+
