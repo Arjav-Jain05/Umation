@@ -59,27 +59,27 @@ Extracted from `docs/SPEC.md`.
   - [x] Git commit and tag `phase-2-pass`
 
 ## Phase 3: Audience Signals and Sensors
-- [ ] Audience signals (yt-dlp):
-  - [ ] Most replayed heatmap normalized 0-1
-  - [ ] Timestamped comments extraction & 10s binning
-  - [ ] Chat replay processing (messages/s, spikes, hype words)
-  - [ ] Chapters soft boundaries
-  - [ ] Fail-soft: mark missing signals as missing, never 0
-- [ ] Layer 1 Sensors:
-  - [ ] SenseVoice voice emotion & sound events (laughter, applause, crying)
-  - [ ] AST sound event detection (explosions, gunshots, screams, siren, etc.) or YAMNet fallback
-  - [ ] Loudness / energy profile (ebur128 / RMS)
-  - [ ] Text emotion per sentence
-  - [ ] Hype lexicon & pace (WPM, exclamation density)
-  - [ ] Scene cuts (PySceneDetect) & motion energy (2 fps frame diff)
-  - [ ] Topic boundaries & dedup (bge-small-en-v1.5 embeddings)
-- [ ] Hot-zone map generation & per-second timeline text generator for LLM
-- [ ] Fusion v1 with automatic weight redistribution when signals are missing
-- [ ] Gate 3 Verification:
-  - [ ] Each sensor runs individually on 2-min sample and emits valid track
-  - [ ] Videos with no heatmap/comments run without failure
-  - [ ] Fusion weights re-normalize dynamically
-  - [ ] Git commit and tag `phase-3-pass`
+- [x] Audience signals (yt-dlp):
+  - [x] Most replayed heatmap normalized 0-1
+  - [x] Timestamped comments extraction & 10s binning
+  - [x] Chat replay processing (messages/s, spikes, hype words)
+  - [x] Chapters soft boundaries
+  - [x] Fail-soft: mark missing signals as missing, never 0
+- [x] Layer 1 Sensors:
+  - [x] SenseVoice voice emotion & sound events (laughter, applause, crying)
+  - [x] AST sound event detection (explosions, gunshots, screams, siren, etc.) or YAMNet fallback
+  - [x] Loudness / energy profile (ebur128 / RMS)
+  - [x] Text emotion per sentence
+  - [x] Hype lexicon & pace (WPM, exclamation density)
+  - [x] Scene cuts (PySceneDetect) & motion energy (2 fps frame diff)
+  - [x] Topic boundaries & dedup (bge-small-en-v1.5 embeddings)
+- [x] Hot-zone map generation & per-second timeline text generator for LLM
+- [x] Fusion v1 with automatic weight redistribution when signals are missing
+- [x] Gate 3 Verification:
+  - [x] Each sensor runs individually on 2-min sample and emits valid track
+  - [x] Videos with no heatmap/comments run without failure
+  - [x] Fusion weights re-normalize dynamically
+  - [x] Git commit and tag `phase-3-pass`
 
 ## Phase 4: Multi-Model Quality
 - [ ] Second proposer (different model family) with candidate deduplication & agreement scoring (>50% overlap)

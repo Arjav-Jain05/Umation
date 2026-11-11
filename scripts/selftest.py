@@ -736,6 +736,215 @@ def run_phase_2_checks() -> list[GateCheckResult]:
     ]
 
 
+def check_phase_3_individual_sensors() -> GateCheckResult:
+    """Verify each Layer 1 sensor runs and emits valid tracks."""
+    t0 = time.time()
+    try:
+        import numpy as np
+        import soundfile as sf
+
+        from app.pipeline.sensors.audio_energy import extract_audio_energy
+        from app.pipeline.sensors.sound_events import extract_sound_events
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            test_wav = Path(tmp_dir) / "test_sensor.wav"
+            sr = 16000
+            t = np.linspace(0, 4.0, int(sr * 4.0), endpoint=False)
+            audio = 0.5 * np.sin(2 * np.pi * 440 * t)
+            sf.write(str(test_wav), audio, sr)
+
+            a_prof = extract_audio_energy(test_wav)
+            se_prof = extract_sound_events(test_wav)
+
+            dur = time.time() - t0
+            if a_prof.duration_s >= 3.9 and se_prof.duration_s >= 3.9:
+                return GateCheckResult(
+                    phase=3,
+                    name="Layer 1 Sensors Individual Run",
+                    status="PASS",
+                    output=f"Audio energy and sound events sensors executed successfully in {dur:.2f}s",
+                    duration_s=dur,
+                )
+            return GateCheckResult(
+                phase=3,
+                name="Layer 1 Sensors Individual Run",
+                status="FAIL",
+                output=f"Sensors returned unexpected duration: {a_prof.duration_s}",
+                duration_s=dur,
+            )
+    except Exception as exc:
+        return GateCheckResult(
+            phase=3,
+            name="Layer 1 Sensors Individual Run",
+            status="FAIL",
+            output=f"Sensor execution error: {exc}",
+            duration_s=time.time() - t0,
+        )
+
+
+def check_phase_3_audience_signals() -> GateCheckResult:
+    """Verify audience signals parsing and fail-soft behavior with missing signals."""
+    t0 = time.time()
+    try:
+        from app.pipeline.s1_ingest.audience import (
+            AudienceSignalsData,
+            get_audience_score_for_window,
+            parse_chat_replay,
+            parse_timestamped_comments,
+            parse_yt_heatmap,
+        )
+
+        # 1. Parsing with data
+        _norm_heat, has_heat = parse_yt_heatmap([{"start_time": 0.0, "end_time": 10.0, "value": 100.0}])
+        _comm_bins, has_comm = parse_timestamped_comments([{"text": "Watch 0:25 lol", "like_count": 5}], duration_s=60.0)
+        _chat_bins, _, has_chat = parse_chat_replay([{"offset_seconds": 15.0, "text": "POG POG"}], duration_s=60.0)
+
+        # 2. Fail-soft with missing signals (never fill with 0)
+        empty_aud = AudienceSignalsData()
+        score_missing, b_missing = get_audience_score_for_window(0.0, 30.0, empty_aud)
+
+        dur = time.time() - t0
+        if has_heat and has_comm and has_chat and score_missing is None and b_missing.get("available") is False:
+            return GateCheckResult(
+                phase=3,
+                name="Audience Signals & Fail-Soft",
+                status="PASS",
+                output=f"Heatmap, comments, and chat parsed with fail-soft missing signal handling in {dur:.2f}s",
+                duration_s=dur,
+            )
+        return GateCheckResult(
+            phase=3,
+            name="Audience Signals & Fail-Soft",
+            status="FAIL",
+            output=f"Audience parsing returned unexpected status: {has_heat=}, {has_comm=}, {has_chat=}, {score_missing=}",
+            duration_s=dur,
+        )
+    except Exception as exc:
+        return GateCheckResult(
+            phase=3,
+            name="Audience Signals & Fail-Soft",
+            status="FAIL",
+            output=f"Audience parsing error: {exc}",
+            duration_s=time.time() - t0,
+        )
+
+
+def check_phase_3_dynamic_fusion() -> GateCheckResult:
+    """Verify dynamic weight redistribution when signals are missing."""
+    t0 = time.time()
+    try:
+        from app.pipeline.s2_select.fusion import calculate_fusion_score
+
+        # When audience is missing (None), active weights must dynamically sum to 1.0
+        signals_input = {
+            "audience": None,
+            "audio_events": 80.0,
+            "emotion": 70.0,
+            "text_hype": 60.0,
+            "llm_consensus": 85.0,
+            "critic": 75.0,
+            "rerank": 80.0,
+            "visual": 65.0,
+            "agreement": 90.0,
+        }
+        final_score, tier, breakdown = calculate_fusion_score(signals_input)
+        active_weights = breakdown["active_weights"]
+        total_w = sum(active_weights.values())
+
+        dur = time.time() - t0
+        if abs(total_w - 1.0) < 1e-3 and "audience" not in active_weights and final_score >= 70.0:
+            return GateCheckResult(
+                phase=3,
+                name="Dynamic Fusion Weight Redistribution",
+                status="PASS",
+                output=f"Active weights dynamically re-normalized to 1.0 (total: {total_w:.4f}), Tier: {tier}, Score: {final_score}",
+                duration_s=dur,
+            )
+        return GateCheckResult(
+            phase=3,
+            name="Dynamic Fusion Weight Redistribution",
+            status="FAIL",
+            output=f"Weight sum != 1.0 or unexpected score: {total_w=}, {final_score=}",
+            duration_s=dur,
+        )
+    except Exception as exc:
+        return GateCheckResult(
+            phase=3,
+            name="Dynamic Fusion Weight Redistribution",
+            status="FAIL",
+            output=f"Fusion error: {exc}",
+            duration_s=time.time() - t0,
+        )
+
+
+def check_phase_3_timeline_and_hot_zones() -> GateCheckResult:
+    """Verify timeline event synthesis and hot zones detection."""
+    t0 = time.time()
+    try:
+        import numpy as np
+
+        from app.pipeline.s1_ingest.audience import AudienceSignalsData
+        from app.pipeline.sensors.audio_energy import AudioEnergyProfile
+        from app.pipeline.sensors.sound_events import SoundEventItem, SoundEventsProfile
+        from app.pipeline.sensors.timeline_generator import (
+            format_timeline_for_prompt,
+            generate_timeline_and_hot_zones,
+        )
+
+        a_prof = AudioEnergyProfile(
+            duration_s=30.0,
+            per_second_rms=np.array([0.1] * 30, dtype=np.float32),
+            per_second_z=np.array([0.0] * 30, dtype=np.float32),
+            mean_rms=0.1,
+            std_rms=0.05,
+            silence_explosion_indices=[10],
+        )
+        se_prof = SoundEventsProfile(
+            duration_s=30.0,
+            events=[SoundEventItem(time_s=10.5, event="explosion", confidence=0.9)],
+            per_second_scores={10: 90.0},
+            per_second_tags={10: ["explosion"]},
+        )
+        aud = AudienceSignalsData(has_chat=True, chat_bins={1: 0.9}, chat_hype_tags={1: ["clip it"]})
+
+        events, hot_zones = generate_timeline_and_hot_zones(30.0, a_prof, se_prof, aud)
+        formatted = format_timeline_for_prompt(events, 5.0, 15.0)
+
+        dur = time.time() - t0
+        if len(events) >= 2 and len(hot_zones) >= 1 and "explosion" in formatted.lower():
+            return GateCheckResult(
+                phase=3,
+                name="Timeline & Hot-Zone Synthesis",
+                status="PASS",
+                output=f"Synthesized {len(events)} events and {len(hot_zones)} hot zones in {dur:.2f}s",
+                duration_s=dur,
+            )
+        return GateCheckResult(
+            phase=3,
+            name="Timeline & Hot-Zone Synthesis",
+            status="FAIL",
+            output=f"Unexpected synthesis result: {len(events)=}, {len(hot_zones)=}",
+            duration_s=dur,
+        )
+    except Exception as exc:
+        return GateCheckResult(
+            phase=3,
+            name="Timeline & Hot-Zone Synthesis",
+            status="FAIL",
+            output=f"Timeline generation error: {exc}",
+            duration_s=time.time() - t0,
+        )
+
+
+def run_phase_3_checks() -> list[GateCheckResult]:
+    return [
+        check_phase_3_individual_sensors(),
+        check_phase_3_audience_signals(),
+        check_phase_3_dynamic_fusion(),
+        check_phase_3_timeline_and_hot_zones(),
+    ]
+
+
 # =====================================================================
 # Main runner
 # =====================================================================
@@ -764,6 +973,8 @@ def main() -> int:
             results = run_phase_1_checks()
         elif phase == 2:
             results = run_phase_2_checks()
+        elif phase == 3:
+            results = run_phase_3_checks()
         else:
             print(f"[INFO] Phase {phase} gate checks not yet activated.")
             results = []

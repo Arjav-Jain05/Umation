@@ -1,4 +1,16 @@
-weights: {llm: 0.65, heat: 0.20, audio: 0.15}
+weights:
+  audience: 0.18
+  audio_events: 0.12
+  emotion: 0.10
+  text_hype: 0.05
+  llm_consensus: 0.12
+  critic: 0.13
+  rerank: 0.15
+  visual: 0.08
+  agreement: 0.04
+  personal_ranker: 0.0
+
+legacy_weights: {llm: 0.65, heat: 0.20, audio: 0.15}
 rubric_weights: {hook: 0.25, payoff: 0.20, clarity: 0.15, emotion: 0.15, novelty: 0.10, shareability: 0.10, pace: 0.05}
 thresholds: {min_final: 35, tier_s: 85, tier_a: 70, tier_b: 55, tier_c: 20}
 limits: {min_clip_s: 15, max_clip_s: 60, story_max_s: 150, max_parts: 4, max_clips_soft: 40}

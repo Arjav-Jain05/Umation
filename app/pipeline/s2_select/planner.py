@@ -239,29 +239,102 @@ def run(ctx: JobContext) -> None:
             gdata = yaml.safe_load(f) or {}
         glossary_terms = [str(t) for t in gdata.get("terms", [])]
 
-    # Pre-compute audio z-scores across whole audio
+    # Audience signals extraction (Section 4)
+    from app.pipeline.s1_ingest.audience import (
+        AudienceSignalsData,
+        get_audience_score_for_window,
+        parse_chapters,
+        parse_chat_replay,
+        parse_timestamped_comments,
+        parse_yt_heatmap,
+    )
+    from app.pipeline.sensors import (
+        extract_audio_energy,
+        extract_sound_events,
+        extract_video_motion,
+        generate_timeline_and_hot_zones,
+        score_audio_window,
+        score_motion_window,
+        score_sound_events_window,
+        score_voice_emotion,
+    )
+
+    norm_heatmap, has_heat = parse_yt_heatmap(source_info.heatmap)
+    comm_bins, has_comm = parse_timestamped_comments(
+        getattr(source_info, "comments", None), source_info.duration_s
+    )
+    chat_bins, chat_hypes, has_chat = parse_chat_replay(
+        getattr(source_info, "chat_replay", None), source_info.duration_s
+    )
+    parsed_chapters, has_chap = parse_chapters(source_info.chapters)
+
+    audience_data = AudienceSignalsData(
+        heatmap=norm_heatmap,
+        has_heatmap=has_heat,
+        comments_bins=comm_bins,
+        has_comments=has_comm,
+        chat_bins=chat_bins,
+        chat_hype_tags=chat_hypes,
+        has_chat=has_chat,
+        chapters=parsed_chapters,
+        has_chapters=has_chap,
+    )
+
+    # Layer 1 Sensors extraction (Section 5)
     audio_wav = ctx.work_dir / "audio.wav"
+    audio_energy_prof = extract_audio_energy(audio_wav)
+    sound_events_prof = extract_sound_events(audio_wav)
+
+    # Video motion (if video file present)
+    video_source = ctx.work_dir / "source.mp4"
+    if not video_source.is_file():
+        video_source = ctx.work_dir / "sample.mp4"
+    motion_prof = extract_video_motion(video_source if video_source.is_file() else None)
+
+    # Hot-zone map & timeline event synthesis
+    _timeline_events, hot_zones = generate_timeline_and_hot_zones(
+        source_info.duration_s,
+        audio_energy_prof,
+        sound_events_prof,
+        audience_data,
+    )
+
+    # Legacy baseline audio for fallback compatibility
     audio_db = frame_db(audio_wav)
     z_scores = compute_baseline_z(audio_db)
 
-    ctx.progress("plan", 0.3, f"Extracted audio signal across {len(audio_db)} frames...")
+    ctx.progress("plan", 0.3, f"Audience & Layer 1 sensors processed across {source_info.duration_s:.1f}s...")
 
     signals_dict: dict[str, Signals] = {}
     coarse_heat_dict: dict[str, bool] = {}
 
     for item in judged_art.items:
         w = (item.s, item.e)
-        # 1. Heatmap
+        # 1. Heatmap & Audience
         h_score, coarse = heat_score(w, source_info.heatmap, source_info.heatmap_avg_seg_s)
         coarse_heat_dict[item.cid] = coarse
+        aud_score, aud_breakdown = get_audience_score_for_window(item.s, item.e, audience_data)
 
-        # 2. Audio energy
-        a_score, bursts = audio_score(w, z_scores)
+        # 2. Audio energy & sound events
+        a_score_legacy, bursts_legacy = audio_score(w, z_scores)
+        a_score_sensor, bursts_sensor, _has_silence_expl = score_audio_window(item.s, item.e, audio_energy_prof)
+        a_score = max(a_score_legacy, a_score_sensor)
+        bursts = max(bursts_legacy, bursts_sensor)
 
-        # 3. Speech ratio & topicality
+        se_score, se_tags = score_sound_events_window(item.s, item.e, sound_events_prof)
+
+        # 3. Speech ratio & voice emotion / hype
         s_ratio = speech_ratio(transcript.words, item.s, item.e)
         t_text = _get_clip_text(item.start_sid, item.end_sid, transcript.sentences)
         t_hits = topical_hits(t_text, glossary_terms)
+
+        emo_score, hype_score, _matched_hypes = score_voice_emotion(
+            item.s, item.e, transcript.words, transcript.sentences, custom_hype_words=glossary_terms
+        )
+
+        # 4. Video motion & hot zone overlap
+        mot_score, scene_cuts = score_motion_window(item.s, item.e, motion_prof)
+        in_hot_zone = any(hz.end_s > item.s and hz.start_s < item.e for hz in hot_zones)
 
         sig = Signals(
             cid=item.cid,
@@ -270,6 +343,16 @@ def run(ctx: JobContext) -> None:
             speech_ratio=s_ratio,
             burst_count=bursts,
             topical_hits=t_hits,
+            audience_score=aud_score,
+            audience_available=audience_data.any_available,
+            audience_breakdown=aud_breakdown,
+            audio_events_score=se_score,
+            audio_events=se_tags,
+            emotion_score=emo_score,
+            text_hype_score=hype_score,
+            motion_score=mot_score,
+            scene_cuts_count=scene_cuts,
+            hot_zone_overlap=in_hot_zone,
         )
         signals_dict[item.cid] = sig
 
@@ -325,9 +408,17 @@ def run(ctx: JobContext) -> None:
 
             scores_breakdown = {
                 "llm": item.llm_score,
+                "audience": sig.audience_score,
                 "audio": sig.audio,
-                "heat": sig.heat,
+                "audio_events": sig.audio_events_score,
+                "sound_event_tags": sig.audio_events,
+                "emotion": sig.emotion_score,
+                "text_hype": sig.text_hype_score,
+                "motion": sig.motion_score,
+                "scene_cuts": sig.scene_cuts_count,
                 "speech_ratio": sig.speech_ratio,
+                "hot_zone": sig.hot_zone_overlap,
+                "heat": sig.heat,
                 "rubric": item.scores.model_dump() if hasattr(item.scores, "model_dump") else item.scores,
             }
             upsert_candidate(

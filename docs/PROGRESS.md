@@ -254,3 +254,39 @@ VERIFICATION SUMMARY: 4 PASS, 0 FAIL
 2. Zero-Model-Call Client Slider: `#slider-panel` in `web/job.html` and `web/js/job.js` allows interactive real-time threshold adjustments (0-100) with dynamic histogram updates, render duration estimates, and preset chips (Strict 80, Balanced 65, Loose 50, Otsu Suggest) operating entirely on in-memory candidate arrays with 0 backend LLM queries.
 3. 7 Selectable Caption Presets: `modern_box`, `classic_yellow`, `minimal_shadow`, `cyan`, `yellow_box`, `neon_green`, and `red_gaming` implemented in `app/pipeline/s3_build/captions.py` with custom styles, highlight colors, and box borders.
 4. Endpoints: `GET /api/jobs/{id}/candidates` (or `/projects/{id}/candidates`) returning candidate breakdowns, histogram bins, and suggested threshold; `POST /api/jobs/{id}/render` (or `/projects/{id}/render`) accepting `{threshold, mode, pins, excludes}` to trigger selective short rendering.
+
+### Phase 3: Audience Signals and Sensors (PASS)
+- Status: `PASS`
+- Completed: 2026-11-11T14:49:00
+- Automated Test Suite: `python scripts/selftest.py --phase 3` -> 4 PASS, 0 FAIL
+- Linting & Code Hygiene: `ruff check app config llm scripts tests` -> All checks passed
+- Unit Tests: `pytest tests/test_phase_3_signals.py` -> 10 PASS in 1.48s
+
+#### Verification Evidence:
+```
+======================================================================
+RUNNING GATE CHECKS FOR PHASE 3
+======================================================================
+[PASS]     Layer 1 Sensors Individual Run   (took 0.20s, VRAM 0MB)
+           Detail: Audio energy and sound events sensors executed successfully in 0.20s...
+[PASS]     Audience Signals & Fail-Soft     (took 0.00s, VRAM 0MB)
+           Detail: Heatmap, comments, and chat parsed with fail-soft missing signal handling in 0.00s...
+[PASS]     Dynamic Fusion Weight Redistribution (took 0.00s, VRAM 0MB)
+           Detail: Active weights dynamically re-normalized to 1.0 (total: 1.0001), Tier: A, Score: 76.4...
+[PASS]     Timeline & Hot-Zone Synthesis    (took 0.00s, VRAM 0MB)
+           Detail: Synthesized 3 events and 1 hot zones in 0.00s...
+----------------------------------------------------------------------
+VERIFICATION SUMMARY: 4 PASS, 0 FAIL
+```
+
+#### Key Architecture Delivered in Phase 3:
+1. `app/pipeline/s1_ingest/audience.py`: Human audience signals parser supporting YouTube normalized most replayed heatmap (0-1), timestamped comments extraction with like weighting and 10s binning, live chat replay processing (density spikes and hype keyword detection e.g. "pog", "clip it", "lmao"), and chapters as soft topic boundaries. Strictly implements fail-soft: missing signals are marked `available=False` and `None` score rather than filling with zeros.
+2. `app/pipeline/sensors/`:
+   - `audio_energy.py`: Loudness / RMS energy profiling across entire audio track, z-scores, peak bursts, and silence-to-explosion suspense/payoff detection.
+   - `sound_events.py`: Acoustic feature detection for gaming audio events (explosions, gunshots, screams, laughter, cheering, tire squeals, sirens).
+   - `voice_emotion.py`: Prosodic speech pace (WPM), exclamation/question density, and hype lexicon matching using RapidFuzz against domain glossaries.
+   - `scene_motion.py`: 2 fps video frame difference motion energy track and histogram-based scene cut detection with cv2.
+   - `topic_segmenter.py`: Sentence similarity topic boundary segmentation and candidate deduplication (>50% time overlap agreement).
+   - `timeline_generator.py`: Discrete timeline event synthesizer and multi-sensor hot-zone map generator for LLM prompt context.
+3. `app/pipeline/s2_select/fusion.py`: Layer 6 composite viral scoring implementing `quality = w_aud*audience + w_ev*audio_events + w_emo*emotion + w_hype*text_hype + w_llm*llm_consensus + w_crit*critic + w_rank*rerank + w_vis*visual + w_agree*agreement + w_pers*personal_ranker` with automatic dynamic weight redistribution when optional signals (like audience heatmap or comments) are unavailable.
+4. Profiles: Configured `profiles/default.yaml` and `profiles/gaming_gta6.yaml` with domain glossaries, hype lexicons, and sound event priorities.
