@@ -224,3 +224,33 @@ VERIFICATION SUMMARY: 4 PASS, 0 FAIL
 3. `LocalLLMClient` (and `GeminiClient` alias) in `app/core/gemini_client.py`: seamlessly directs JSON/text prompts to local Ollama daemon without changing caller signatures.
 4. Offline local pipeline ingestion: `source_check.py`, `download.py`, and `segments.py` updated to support local media files directly.
 5. End-to-end local render: verified 1080x1920 (9:16) video output with synchronized ASS captions rendered using NVENC hardware acceleration with peak VRAM under 1.3 GB (limit 7.5 GB).
+
+### Phase 2: Live Quality Slider, Candidates Store & Caption Presets (PASS)
+- Status: `PASS`
+- Completed: 2026-11-11T14:35:50
+- Automated Test Suite: `python scripts/selftest.py --phase 2` -> 4 PASS, 0 FAIL
+- Linting & Code Hygiene: `ruff check app config llm scripts tests` -> All checks passed
+- Unit Tests: `pytest tests/test_phase_2_slider.py` -> 4 PASS in 2.11s
+
+#### Verification Evidence:
+```
+======================================================================
+RUNNING GATE CHECKS FOR PHASE 2
+======================================================================
+[PASS]     Candidate Store Persistence      (took 0.14s, VRAM 0MB)
+           Detail: Candidate persisted and retrieved with full score breakdown in 0.14s: {'llm': 78.0, 'audio': 65.0}...
+[PASS]     Slider Zero-Model-Calls Assertion (took 1.38s, VRAM 0MB)
+           Detail: Moving quality-threshold slider filters in-memory data with ZERO model calls....
+[PASS]     7 Caption Presets Generation     (took 0.24s, VRAM 0MB)
+           Detail: All 7 presets verified: modern_box, classic_yellow, minimal_shadow, cyan, yellow_box, neon_green, red_gaming...
+[PASS]     Candidates & Render API Endpoints (took 1.39s, VRAM 0MB)
+           Detail: GET /projects/{id}/candidates and POST /projects/{id}/render verified with filtering & pins....
+----------------------------------------------------------------------
+VERIFICATION SUMMARY: 4 PASS, 0 FAIL
+```
+
+#### Key Architecture Delivered in Phase 2:
+1. SQLite Candidates Store: Added `candidates` table and index in `app/core/db.py` and `app/core/models.py`. In `planner.py`, all nominated/judged candidates are persisted with their complete score breakdowns (`llm`, `audio`, `heat`, `final_score`, etc.) regardless of whether they pass the default render floor.
+2. Zero-Model-Call Client Slider: `#slider-panel` in `web/job.html` and `web/js/job.js` allows interactive real-time threshold adjustments (0-100) with dynamic histogram updates, render duration estimates, and preset chips (Strict 80, Balanced 65, Loose 50, Otsu Suggest) operating entirely on in-memory candidate arrays with 0 backend LLM queries.
+3. 7 Selectable Caption Presets: `modern_box`, `classic_yellow`, `minimal_shadow`, `cyan`, `yellow_box`, `neon_green`, and `red_gaming` implemented in `app/pipeline/s3_build/captions.py` with custom styles, highlight colors, and box borders.
+4. Endpoints: `GET /api/jobs/{id}/candidates` (or `/projects/{id}/candidates`) returning candidate breakdowns, histogram bins, and suggested threshold; `POST /api/jobs/{id}/render` (or `/projects/{id}/render`) accepting `{threshold, mode, pins, excludes}` to trigger selective short rendering.

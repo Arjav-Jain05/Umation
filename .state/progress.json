@@ -1,5 +1,5 @@
 {
-  "current_phase": 2,
+  "current_phase": 3,
   "status": "in_progress",
   "phases": {
     "phase_0": {
@@ -27,14 +27,20 @@
       "peak_vram_mb": 1234.0
     },
     "phase_2": {
-      "status": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "checks": {}
+      "status": "pass",
+      "started_at": "2026-11-11T13:55:00",
+      "completed_at": "2026-11-11T14:35:50",
+      "checks": {
+        "candidate_store": "pass",
+        "slider_zero_model_calls": "pass",
+        "caption_presets": "pass",
+        "endpoints": "pass"
+      },
+      "peak_vram_mb": 0.0
     },
     "phase_3": {
-      "status": "pending",
-      "started_at": null,
+      "status": "in_progress",
+      "started_at": "2026-11-11T14:36:00",
       "completed_at": null,
       "checks": {}
     },
@@ -50,5 +56,6 @@
       "completed_at": null,
       "checks": {}
     }
-  }
+  },
+  "last_updated": "2026-11-11T14:36:50"
 }

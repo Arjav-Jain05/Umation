@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sqlite3
 from typing import Any
@@ -256,6 +257,122 @@ def list_results(
         else:
             cur = c.execute("SELECT * FROM results ORDER BY logged_at DESC")
         return [dict(row) for row in cur.fetchall()]
+    finally:
+        if conn is None:
+            c.close()
+
+
+def upsert_candidate(data: dict[str, Any], conn: sqlite3.Connection | None = None) -> None:
+    """Insert or update a candidate in the candidates store."""
+    sql = """
+    INSERT INTO candidates (
+        job_id, id, start_s, end_s, hook_text, topic, llm_score,
+        audio_score, heat_score, final_score, tier, scores_json,
+        selected, pinned, excluded, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(job_id, id) DO UPDATE SET
+        start_s=excluded.start_s,
+        end_s=excluded.end_s,
+        hook_text=excluded.hook_text,
+        topic=excluded.topic,
+        llm_score=excluded.llm_score,
+        audio_score=excluded.audio_score,
+        heat_score=excluded.heat_score,
+        final_score=excluded.final_score,
+        tier=excluded.tier,
+        scores_json=excluded.scores_json,
+        selected=excluded.selected,
+        pinned=excluded.pinned,
+        excluded=excluded.excluded
+    """
+    scores_str = data.get("scores_json")
+    if not isinstance(scores_str, str):
+        scores_str = json.dumps(scores_str or {})
+
+    params = (
+        data["job_id"],
+        data["id"],
+        float(data["start_s"]),
+        float(data["end_s"]),
+        data.get("hook_text"),
+        data.get("topic"),
+        float(data["llm_score"]),
+        data.get("audio_score"),
+        data.get("heat_score"),
+        float(data["final_score"]),
+        data.get("tier", "C"),
+        scores_str,
+        1 if data.get("selected", True) else 0,
+        1 if data.get("pinned", False) else 0,
+        1 if data.get("excluded", False) else 0,
+        data.get("created_at") or now_iso(),
+    )
+    c = conn or get_conn()
+    try:
+        c.execute(sql, params)
+    finally:
+        if conn is None:
+            c.close()
+
+
+def list_candidates(
+    job_id: str,
+    min_score: float | None = None,
+    conn: sqlite3.Connection | None = None,
+) -> list[dict[str, Any]]:
+    """Fetch candidates for a job, optionally filtered by minimum score."""
+    c = conn or get_conn()
+    try:
+        if min_score is not None:
+            cur = c.execute(
+                "SELECT * FROM candidates WHERE job_id = ? AND final_score >= ? ORDER BY final_score DESC",
+                (job_id, min_score),
+            )
+        else:
+            cur = c.execute(
+                "SELECT * FROM candidates WHERE job_id = ? ORDER BY final_score DESC",
+                (job_id,),
+            )
+        rows = [dict(r) for r in cur.fetchall()]
+        for r in rows:
+            if isinstance(r.get("scores_json"), str):
+                with contextlib.suppress(Exception):
+                    r["scores"] = json.loads(r["scores_json"])
+        return rows
+    finally:
+        if conn is None:
+            c.close()
+
+
+def update_candidate_selection(
+    job_id: str,
+    candidate_id: str,
+    selected: bool | None = None,
+    pinned: bool | None = None,
+    excluded: bool | None = None,
+    conn: sqlite3.Connection | None = None,
+) -> None:
+    """Update selection flags (selected, pinned, excluded) for a candidate."""
+    updates: list[str] = []
+    params: list[Any] = []
+    if selected is not None:
+        updates.append("selected = ?")
+        params.append(1 if selected else 0)
+    if pinned is not None:
+        updates.append("pinned = ?")
+        params.append(1 if pinned else 0)
+    if excluded is not None:
+        updates.append("excluded = ?")
+        params.append(1 if excluded else 0)
+
+    if not updates:
+        return
+
+    params.extend([job_id, candidate_id])
+    sql = f"UPDATE candidates SET {', '.join(updates)} WHERE job_id = ? AND id = ?"
+    c = conn or get_conn()
+    try:
+        c.execute(sql, tuple(params))
     finally:
         if conn is None:
             c.close()

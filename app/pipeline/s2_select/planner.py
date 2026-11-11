@@ -300,11 +300,55 @@ def run(ctx: JobContext) -> None:
     )
     ctx.write_artifact("plan.json", plan)
 
-    # Sync planned clips into SQLite clips table
+    # Sync planned clips into SQLite clips table and persist candidate store
     from app.core.db import get_conn
-    from app.core.models import upsert_clip
+    from app.core.models import upsert_candidate, upsert_clip
 
     with get_conn(ctx.db_path) as conn:
+        # Persist ALL candidates into candidates table for live slider filtering
+        for item in judged_art.items:
+            sig = signals_dict.get(item.cid)
+            if not sig:
+                continue
+            coarse_heat = coarse_heat_dict.get(item.cid, False)
+            cand_score = blend(
+                item, sig, scoring_cfg, domain=ctx.settings.project_domain, heat_coarse_override=coarse_heat
+            )
+            if cand_score >= 85.0:
+                tier = "S"
+            elif cand_score >= 70.0:
+                tier = "A"
+            elif cand_score >= 55.0:
+                tier = "B"
+            else:
+                tier = "C"
+
+            scores_breakdown = {
+                "llm": item.llm_score,
+                "audio": sig.audio,
+                "heat": sig.heat,
+                "speech_ratio": sig.speech_ratio,
+                "rubric": item.scores.model_dump() if hasattr(item.scores, "model_dump") else item.scores,
+            }
+            upsert_candidate(
+                {
+                    "job_id": ctx.job_id,
+                    "id": item.cid,
+                    "start_s": item.s,
+                    "end_s": item.e,
+                    "hook_text": item.hook_text,
+                    "topic": item.topic,
+                    "llm_score": item.llm_score,
+                    "audio_score": sig.audio,
+                    "heat_score": sig.heat,
+                    "final_score": cand_score,
+                    "tier": tier,
+                    "scores_json": scores_breakdown,
+                    "selected": 1 if any(c.id == item.cid for c in clips) else 0,
+                },
+                conn=conn,
+            )
+
         for idx, c in enumerate(clips):
             upsert_clip(
                 {

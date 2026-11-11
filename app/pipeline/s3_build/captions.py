@@ -6,6 +6,7 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -14,6 +15,101 @@ from app.core.schemas import WordClip
 from app.utils.text import mask_profanity
 
 logger = logging.getLogger("app.pipeline.s3_build.captions")
+
+
+CAPTION_PRESETS: dict[str, dict[str, Any]] = {
+    "modern_box": {
+        "font": "Montserrat ExtraBold",
+        "fontsize": 84,
+        "primary": "&H00FFFFFF",
+        "secondary": "&H00000000",
+        "outline_color": "&H00000000",
+        "back_color": "&H80000000",
+        "border_style": 3,
+        "outline": 8,
+        "shadow": 0,
+        "highlight_color": "&H00FFFF&",
+        "emphasis_color": "&H0088FF&",
+    },
+    "classic_yellow": {
+        "font": "Montserrat ExtraBold",
+        "fontsize": 84,
+        "primary": "&H0000FFFF",
+        "secondary": "&H00000000",
+        "outline_color": "&H00000000",
+        "back_color": "&H00000000",
+        "border_style": 1,
+        "outline": 7,
+        "shadow": 3,
+        "highlight_color": "&H00FFFFFF&",
+        "emphasis_color": "&H000088FF&",
+    },
+    "minimal_shadow": {
+        "font": "Montserrat ExtraBold",
+        "fontsize": 80,
+        "primary": "&H00FFFFFF",
+        "secondary": "&H00000000",
+        "outline_color": "&H00111111",
+        "back_color": "&H60000000",
+        "border_style": 1,
+        "outline": 2,
+        "shadow": 4,
+        "highlight_color": "&H00FFFF00&",
+        "emphasis_color": "&H000088FF&",
+    },
+    "cyan": {
+        "font": "Montserrat ExtraBold",
+        "fontsize": 84,
+        "primary": "&H00FFFF00",
+        "secondary": "&H00000000",
+        "outline_color": "&H00000000",
+        "back_color": "&H00000000",
+        "border_style": 1,
+        "outline": 6,
+        "shadow": 2,
+        "highlight_color": "&H0000FFFF&",
+        "emphasis_color": "&H000000FF&",
+    },
+    "yellow_box": {
+        "font": "Montserrat ExtraBold",
+        "fontsize": 82,
+        "primary": "&H00000000",
+        "secondary": "&H00000000",
+        "outline_color": "&H00000000",
+        "back_color": "&H0000E5FF",
+        "border_style": 3,
+        "outline": 6,
+        "shadow": 0,
+        "highlight_color": "&H000000FF&",
+        "emphasis_color": "&H00990000&",
+    },
+    "neon_green": {
+        "font": "Montserrat ExtraBold",
+        "fontsize": 84,
+        "primary": "&H0014FF39",
+        "secondary": "&H00000000",
+        "outline_color": "&H00050505",
+        "back_color": "&H00000000",
+        "border_style": 1,
+        "outline": 6,
+        "shadow": 2,
+        "highlight_color": "&H00FFFFFF&",
+        "emphasis_color": "&H0000FFFF&",
+    },
+    "red_gaming": {
+        "font": "Montserrat ExtraBold",
+        "fontsize": 86,
+        "primary": "&H002020FF",
+        "secondary": "&H00000000",
+        "outline_color": "&H00000000",
+        "back_color": "&H00000000",
+        "border_style": 1,
+        "outline": 7,
+        "shadow": 3,
+        "highlight_color": "&H0000E5FF&",
+        "emphasis_color": "&H00FFFFFF&",
+    },
+}
 
 
 @dataclass
@@ -114,12 +210,14 @@ def write_ass(
     out_path: Path | str = "captions.ass",
     mask_profanity_flag: bool = True,
     emphasis_indices: list[int] | None = None,
+    preset: str = "modern_box",
 ) -> Path:
-    """Generate ASS subtitle file with Montserrat font and yellow karaoke word highlighting."""
+    """Generate ASS subtitle file with responsive styling and 7 selectable aesthetic presets."""
     p = Path(out_path)
     p.parent.mkdir(parents=True, exist_ok=True)
 
     emphasis_set = set(emphasis_indices or [])
+    p_cfg = CAPTION_PRESETS.get(preset, CAPTION_PRESETS["modern_box"])
 
     # Determine anchor Y position based on layout
     anchor_y = 1330
@@ -130,7 +228,7 @@ def write_ass(
 
     prof_words = _load_profanity_words() if mask_profanity_flag else []
 
-    header = """[Script Info]
+    header = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
 PlayResY: 1920
@@ -139,7 +237,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Cap,Montserrat ExtraBold,84,&H00FFFFFF,&H00000000,&H00000000,&H00000000,-1,0,0,0,100,100,1,0,1,6,0,5,60,60,0,1
+Style: Cap,{p_cfg['font']},{p_cfg['fontsize']},{p_cfg['primary']},{p_cfg['secondary']},{p_cfg['outline_color']},{p_cfg['back_color']},-1,0,0,0,100,100,1,0,{p_cfg['border_style']},{p_cfg['outline']},{p_cfg['shadow']},5,60,60,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -147,6 +245,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
     dialogue_lines: list[str] = []
     global_word_idx = 0
+
+    highlight_tag = p_cfg["highlight_color"]
+    emphasis_tag = p_cfg["emphasis_color"]
 
     for chunk in chunks:
         n_words = len(chunk.words)
@@ -160,7 +261,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             t_start_ass = _fmt_ass_time(w_start)
             t_end_ass = _fmt_ass_time(w_end)
 
-            # Build line text with active word highlighted yellow &H00FFFF& (BGR)
             rendered_words: list[str] = []
             for k, w_obj in enumerate(chunk.words):
                 clean_w = w_obj.w.upper()
@@ -170,10 +270,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 word_pos = getattr(w_obj, "idx", global_word_idx + k)
                 if k == w_idx:
                     # Highlighted active word
-                    rendered_words.append(f"{{\\c&H00FFFF&}}{clean_w}{{\\r}}")
+                    rendered_words.append(f"{{\\c{highlight_tag}}}{clean_w}{{\\r}}")
                 elif w_obj.emphasis or (word_pos in emphasis_set):
-                    # Permanent orange emphasis within chunk
-                    rendered_words.append(f"{{\\c&H0088FF&}}{clean_w}{{\\r}}")
+                    # Permanent emphasis within chunk
+                    rendered_words.append(f"{{\\c{emphasis_tag}}}{clean_w}{{\\r}}")
                 else:
                     rendered_words.append(clean_w)
 

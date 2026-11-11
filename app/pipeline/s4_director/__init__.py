@@ -49,6 +49,7 @@ def run(ctx: JobContext) -> None:
                     out_path=clip_dir / "captions.ass",
                     mask_profanity_flag=getattr(ctx.options, "mask_profanity", True),
                     emphasis_indices=edit_list.caption_emphasis,
+                    preset=getattr(ctx.options, "caption_preset", "modern_box"),
                 )
 
             # 3. Final re-render with composited fx and mixed SFX

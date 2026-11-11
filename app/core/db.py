@@ -72,6 +72,30 @@ DDL_STATEMENTS = [
         created_at TEXT NOT NULL
     );
     """,
+    """
+    CREATE TABLE IF NOT EXISTS candidates (
+        job_id TEXT NOT NULL,
+        id TEXT NOT NULL,
+        start_s REAL NOT NULL,
+        end_s REAL NOT NULL,
+        hook_text TEXT,
+        topic TEXT,
+        llm_score REAL NOT NULL,
+        audio_score REAL,
+        heat_score REAL,
+        final_score REAL NOT NULL,
+        tier TEXT NOT NULL,
+        scores_json TEXT NOT NULL,
+        selected INTEGER NOT NULL DEFAULT 1,
+        pinned INTEGER NOT NULL DEFAULT 0,
+        excluded INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (job_id, id)
+    );
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_candidates_job ON candidates (job_id);
+    """,
 ]
 
 

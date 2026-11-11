@@ -41,22 +41,22 @@ Extracted from `docs/SPEC.md`.
   - [x] Git commit and tag `phase-1-pass`
 
 ## Phase 2: Slider, Candidates Store, Caption Presets
-- [ ] Candidate store database / schema: persist all candidates with full score breakdown above floor (default 35)
-- [ ] Scoring skeleton (Layer 6 baseline)
-- [ ] Quality-threshold slider UI (0-100, default 65, instant client-side filtering)
-- [ ] Slider unit/browser test: verify dragging slider triggers ZERO model calls
-- [ ] Candidate score histogram with threshold marker and S/A/B/C tier coloring
-- [ ] Threshold presets: Strict (80), Balanced (65), Loose (50), and "Suggest" (distribution elbow)
-- [ ] Relative mode toggle (keep top X% of video)
-- [ ] Borderline candidates drawer with manual pin / exclude checkboxes
-- [ ] 7 Caption style presets (modern box, classic yellow outline, minimal shadow, cyan, yellow box, neon green, red/gaming)
-- [ ] "Render selected" workflow (`GET /projects/{id}/candidates`, `POST /projects/{id}/render`)
-- [ ] Gate 2 Verification:
-  - [ ] Candidate store accurately saves all candidates above floor
-  - [ ] Slider changes rendered count instantly with 0 backend model calls
-  - [ ] Only pinned/selected candidates are rendered
-  - [ ] Browser smoke test drives slider and verifies UI behavior
-  - [ ] Git commit and tag `phase-2-pass`
+- [x] Candidate store database / schema: persist all candidates with full score breakdown above floor (default 35)
+- [x] Scoring skeleton (Layer 6 baseline)
+- [x] Quality-threshold slider UI (0-100, default 65, instant client-side filtering)
+- [x] Slider unit/browser test: verify dragging slider triggers ZERO model calls
+- [x] Candidate score histogram with threshold marker and S/A/B/C tier coloring
+- [x] Threshold presets: Strict (80), Balanced (65), Loose (50), and "Suggest" (distribution elbow)
+- [x] Relative mode toggle (keep top X% of video)
+- [x] Borderline candidates drawer with manual pin / exclude checkboxes
+- [x] 7 Caption style presets (modern box, classic yellow outline, minimal shadow, cyan, yellow box, neon green, red/gaming)
+- [x] "Render selected" workflow (`GET /projects/{id}/candidates`, `POST /projects/{id}/render`)
+- [x] Gate 2 Verification:
+  - [x] Candidate store accurately saves all candidates above floor
+  - [x] Slider changes rendered count instantly with 0 backend model calls
+  - [x] Only pinned/selected candidates are rendered
+  - [x] Browser smoke test drives slider and verifies UI behavior
+  - [x] Git commit and tag `phase-2-pass`
 
 ## Phase 3: Audience Signals and Sensors
 - [ ] Audience signals (yt-dlp):

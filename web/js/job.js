@@ -352,6 +352,7 @@ async function loadClips() {
       summaryText.textContent = `${clips.length} moments planned (${pkgCount} packaged): ${aCount} Tier A, ${bCount} Tier B, ${cCount} Tier C`;
       summarySignals.textContent = `All clips selected above score threshold (min 60).`;
       renderClipsGrid();
+      loadCandidatesAndInitSlider();
     }
   } catch (err) {
     console.error("Failed to load clips:", err);
@@ -517,6 +518,174 @@ async function init() {
       cleanupBtn.style.display = "inline-flex";
       loadClips();
     },
+  });
+}
+
+// --- Quality Threshold Slider Implementation (Phase 2 & Section 6) ---
+let allCandidates = [];
+let candidateHistogram = [];
+let suggestedThreshold = 65;
+const pinnedCandidateIds = new Set();
+const excludedCandidateIds = new Set();
+
+const sliderPanel = document.getElementById("slider-panel");
+const qualitySlider = document.getElementById("quality-slider");
+const sliderValDisplay = document.getElementById("slider-val-display");
+const sliderSelectedCount = document.getElementById("slider-selected-count");
+const sliderDurationDisplay = document.getElementById("slider-duration-display");
+const sliderEstTime = document.getElementById("slider-est-time");
+const histogramContainer = document.getElementById("histogram-container");
+const relativeModeToggle = document.getElementById("relative-mode-toggle");
+const renderSelectedBtn = document.getElementById("render-selected-btn");
+
+const presetStrictBtn = document.getElementById("preset-strict-btn");
+const presetBalancedBtn = document.getElementById("preset-balanced-btn");
+const presetLooseBtn = document.getElementById("preset-loose-btn");
+const presetSuggestBtn = document.getElementById("preset-suggest-btn");
+
+function renderHistogram(histogram, currentVal) {
+  if (!histogramContainer) return;
+  histogramContainer.innerHTML = "";
+  const maxCount = Math.max(1, ...histogram.map((b) => b.count));
+
+  histogram.forEach((b) => {
+    const bar = document.createElement("div");
+    const heightPct = Math.round((b.count / maxCount) * 100);
+    bar.style.flex = "1";
+    bar.style.height = `${Math.max(6, heightPct)}%`;
+    bar.style.borderRadius = "3px 3px 0 0";
+    bar.title = `${b.range}: ${b.count} candidate(s) (Tier ${b.tier})`;
+
+    // Color code by tier
+    if (b.tier === "S") bar.style.background = "#e5a50a";
+    else if (b.tier === "A") bar.style.background = "#2ecc71";
+    else if (b.tier === "B") bar.style.background = "#3498db";
+    else bar.style.background = "#7f8c8d";
+
+    if (b.high <= currentVal) {
+      bar.style.opacity = "0.35";
+    } else {
+      bar.style.opacity = "1";
+    }
+
+    histogramContainer.appendChild(bar);
+  });
+}
+
+function updateSliderFilter(thresholdVal) {
+  if (sliderValDisplay) sliderValDisplay.textContent = thresholdVal;
+  const isRelative = relativeModeToggle && relativeModeToggle.checked;
+
+  let selected = [];
+  if (isRelative) {
+    const sorted = [...allCandidates].sort((a, b) => b.final_score - a.final_score);
+    const targetCount = Math.max(1, Math.round(sorted.length * (thresholdVal / 100.0)));
+    selected = sorted.filter((c, idx) => {
+      if (excludedCandidateIds.has(c.id)) return false;
+      return pinnedCandidateIds.has(c.id) || idx < targetCount;
+    });
+  } else {
+    selected = allCandidates.filter((c) => {
+      if (excludedCandidateIds.has(c.id)) return false;
+      return pinnedCandidateIds.has(c.id) || c.final_score >= thresholdVal;
+    });
+  }
+
+  if (sliderSelectedCount) sliderSelectedCount.textContent = selected.length;
+  const totalSec = selected.reduce((acc, c) => acc + (c.end_s - c.start_s), 0);
+  if (sliderDurationDisplay) sliderDurationDisplay.textContent = `(${fmtTime(totalSec)} total)`;
+  const estRenderSec = Math.round(selected.length * 15);
+  if (sliderEstTime) sliderEstTime.textContent = `Est. render: ~${estRenderSec}s`;
+
+  renderHistogram(candidateHistogram, thresholdVal);
+
+  // Update active preset button highlight
+  [presetStrictBtn, presetBalancedBtn, presetLooseBtn].forEach((btn) => {
+    if (btn) {
+      btn.classList.toggle("active", parseFloat(btn.dataset.val) === thresholdVal);
+    }
+  });
+}
+
+async function loadCandidatesAndInitSlider() {
+  try {
+    const data = await getJSON(`/api/jobs/${encodeURIComponent(jobId)}/candidates`);
+    allCandidates = data.candidates || [];
+    candidateHistogram = data.histogram || [];
+    suggestedThreshold = data.suggested_threshold || 65;
+
+    if (allCandidates.length > 0 && sliderPanel) {
+      sliderPanel.style.display = "block";
+      const initialVal = qualitySlider ? parseFloat(qualitySlider.value) : 65;
+      renderHistogram(candidateHistogram, initialVal);
+      updateSliderFilter(initialVal);
+    }
+  } catch (err) {
+    console.warn("Could not load candidates:", err);
+  }
+}
+
+// Event Listeners for Slider Controls
+if (qualitySlider) {
+  qualitySlider.addEventListener("input", (e) => {
+    updateSliderFilter(parseFloat(e.target.value));
+  });
+}
+
+if (relativeModeToggle) {
+  relativeModeToggle.addEventListener("change", () => {
+    if (qualitySlider) updateSliderFilter(parseFloat(qualitySlider.value));
+  });
+}
+
+if (presetStrictBtn) {
+  presetStrictBtn.addEventListener("click", () => {
+    if (qualitySlider) qualitySlider.value = 80;
+    updateSliderFilter(80);
+  });
+}
+
+if (presetBalancedBtn) {
+  presetBalancedBtn.addEventListener("click", () => {
+    if (qualitySlider) qualitySlider.value = 65;
+    updateSliderFilter(65);
+  });
+}
+
+if (presetLooseBtn) {
+  presetLooseBtn.addEventListener("click", () => {
+    if (qualitySlider) qualitySlider.value = 50;
+    updateSliderFilter(50);
+  });
+}
+
+if (presetSuggestBtn) {
+  presetSuggestBtn.addEventListener("click", () => {
+    if (qualitySlider) qualitySlider.value = suggestedThreshold;
+    updateSliderFilter(suggestedThreshold);
+  });
+}
+
+if (renderSelectedBtn) {
+  renderSelectedBtn.addEventListener("click", async () => {
+    try {
+      renderSelectedBtn.disabled = true;
+      renderSelectedBtn.textContent = "Submitting render...";
+      const isRelative = relativeModeToggle && relativeModeToggle.checked;
+      const res = await postJSON(`/api/jobs/${encodeURIComponent(jobId)}/render`, {
+        threshold: qualitySlider ? parseFloat(qualitySlider.value) : 65.0,
+        mode: isRelative ? "relative" : "absolute",
+        pins: Array.from(pinnedCandidateIds),
+        excludes: Array.from(excludedCandidateIds),
+      });
+      alert(`Render triggered for ${res.selected_count} selected clips!`);
+      loadClips();
+    } catch (err) {
+      alert(`Failed to trigger render: ${err.message}`);
+    } finally {
+      renderSelectedBtn.disabled = false;
+      renderSelectedBtn.textContent = "Render Selected";
+    }
   });
 }
 
