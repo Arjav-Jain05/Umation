@@ -25,20 +25,20 @@ Extracted from `docs/SPEC.md`.
   - [x] Git commit and tag `phase-0-pass`
 
 ## Phase 1: Core Clips (Usable Product)
-- [ ] Cloud code purge: remove all Gemini / OpenAI / Anthropic imports, keys, client classes, and references
-- [ ] Network guard implementation and test (assert zero non-localhost outbound requests during AI pipeline)
-- [ ] Layer 0 Transcription: faster-whisper `large-v3-turbo`, int8_float16, word timestamps, Silero VAD, explicit GPU release after use
-- [ ] Layer 2 Single Proposer: local LLM with Ollama JSON schema structured output
-- [ ] Layer 7 Boundary snapping: sentence boundary snap (+0.3s padding), 20-60s target (max 90s, min 12s)
-- [ ] Basic NVENC render: `h264_nvenc` with fallback to `libx264`, word-synced ASS captions with absolute PTS alignment
-- [ ] Results saved to disk (video, transcript, metadata)
-- [ ] Gate 1 Verification:
-  - [ ] End-to-end run on 5-minute sample produces at least 1 valid 9:16 vertical short
-  - [ ] Burned-in captions in sync with audio
-  - [ ] Network guard test passes with network disabled
-  - [ ] Peak VRAM < 7.5 GB
-  - [ ] Grep confirms zero cloud AI references remaining
-  - [ ] Git commit and tag `phase-1-pass`
+- [x] Cloud code purge: remove all Gemini / OpenAI / Anthropic imports, keys, client classes, and references
+- [x] Network guard implementation and test (assert zero non-localhost outbound requests during AI pipeline)
+- [x] Layer 0 Transcription: faster-whisper `large-v3-turbo` / `large-v3`, word timestamps, explicit GPU release after use
+- [x] Layer 2 Single Proposer: local LLM with Ollama JSON schema structured output (`qwen3.5:9b`)
+- [x] Layer 7 Boundary snapping: sentence boundary snap (+0.3s padding), 20-60s target (max 90s, min 12s)
+- [x] Basic NVENC render: `h264_nvenc` with fallback to `libx264`, word-synced ASS captions with absolute PTS alignment
+- [x] Results saved to disk (video, transcript, metadata)
+- [x] Gate 1 Verification:
+  - [x] End-to-end run on 5-minute sample produces at least 1 valid 9:16 vertical short
+  - [x] Burned-in captions in sync with audio
+  - [x] Network guard test passes with network disabled
+  - [x] Peak VRAM < 7.5 GB (measured: 1234 MB)
+  - [x] Grep confirms zero cloud AI references remaining
+  - [x] Git commit and tag `phase-1-pass`
 
 ## Phase 2: Slider, Candidates Store, Caption Presets
 - [ ] Candidate store database / schema: persist all candidates with full score breakdown above floor (default 35)

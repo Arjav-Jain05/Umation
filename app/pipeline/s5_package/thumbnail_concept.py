@@ -98,7 +98,7 @@ def make_concept(ctx: JobContext, clip: Clip) -> ThumbConcept:
             prompt,
             ThumbConcept,
             temperature=0.7,
-            cache_key=f"thumb_concept_{ctx.job.id}_{clip.id}",
+            cache_key=f"thumb_concept_{ctx.job_id}_{clip.id}",
         )
         concept.text = clean_concept_text(concept.text)
         if concept.text_position not in ("top", "left", "bottom"):

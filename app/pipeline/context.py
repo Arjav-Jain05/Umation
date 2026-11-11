@@ -37,6 +37,7 @@ class JobContext:
         self.job_id = str(job["id"])
         self.video_id = str(job.get("video_id") or "")
         self.gemini = gemini or GeminiClient(self.settings)
+        self.llm = self.gemini
         self.cancel_event = cancel_event or threading.Event()
 
         # Parse options
@@ -98,6 +99,10 @@ class JobContext:
         """Log a warning and publish an SSE warning event."""
         logger.warning("[%s] %s", self.job_id, message)
         broadcaster.publish(self.job_id, "warning", {"message": message})
+
+    def publish(self, event: str, data: dict[str, Any]) -> None:
+        """Publish an SSE event for this job."""
+        broadcaster.publish(self.job_id, event, data)
 
     def artifact_path(self, name: str) -> Path:
         """Resolve full filesystem path for a named artifact under job work directory."""

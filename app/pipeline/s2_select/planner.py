@@ -44,17 +44,33 @@ def plan_clips(
     scoring_cfg: dict[str, Any],
     domain: str = "gta6",
     min_tier: str = "C",
+    quality_threshold: float | None = None,
     gemini_client: Any = None,
     second_look: bool = False,
 ) -> list[Clip]:
     """Execute planning pipeline: blend scores, assess risk, deduplicate, and split stories."""
-    thresholds = scoring_cfg.get("thresholds", {"min_final": 60, "tier_a": 80, "tier_b": 70})
-    min_final = float(thresholds.get("min_final", 60))
-    tier_a_min = float(thresholds.get("tier_a", 80))
-    tier_b_min = float(thresholds.get("tier_b", 70))
+    thresholds = scoring_cfg.get("thresholds", {"min_final": 35, "tier_s": 85, "tier_a": 70, "tier_b": 55, "tier_c": 20})
+    tier_s_min = float(thresholds.get("tier_s", 85.0))
+    tier_a_min = float(thresholds.get("tier_a", 70.0))
+    tier_b_min = float(thresholds.get("tier_b", 55.0))
+    tier_c_min = float(thresholds.get("tier_c", 20.0))
+    floor = float(thresholds.get("min_final", 35.0))
 
-    tier_rank_order = {"A": 3, "B": 2, "C": 1}
+    tier_rank_order = {"S": 4, "A": 3, "B": 2, "C": 1}
     target_rank = tier_rank_order.get(min_tier.upper(), 1)
+
+    if quality_threshold is not None:
+        effective_threshold = float(quality_threshold)
+    elif min_tier.upper() == "S":
+        effective_threshold = tier_s_min
+    elif min_tier.upper() == "A":
+        effective_threshold = tier_a_min
+    elif min_tier.upper() == "B":
+        effective_threshold = tier_b_min
+    elif min_tier.upper() == "C":
+        effective_threshold = tier_c_min
+    else:
+        effective_threshold = floor
 
     scored_candidates: list[tuple[float, Clip, str]] = []
 
@@ -74,13 +90,21 @@ def plan_clips(
         if risk_lvl == "high" and final >= 80.0:
             final = 79.0
 
-        if final < min_final:
-            if second_look and final >= (min_final - 8.0):
-                final = min_final
+        if final < effective_threshold:
+            if second_look and final >= (effective_threshold - 8.0):
+                final = effective_threshold
             else:
                 continue
 
-        tier = "A" if final >= tier_a_min else ("B" if final >= tier_b_min else "C")
+        if final >= tier_s_min:
+            tier = "S"
+        elif final >= tier_a_min:
+            tier = "A"
+        elif final >= tier_b_min:
+            tier = "B"
+        else:
+            tier = "C"
+
         if tier_rank_order.get(tier, 1) < target_rank:
             continue
 
@@ -105,6 +129,35 @@ def plan_clips(
             context_fix=item.context_fix,
         )
         scored_candidates.append((final, c, text))
+
+    # If no candidate reached threshold but user requested Tier C (loose), retain top candidate
+    if not scored_candidates and judged_items and target_rank == 1:
+        best_item = max(judged_items, key=lambda it: it.llm_score)
+        sig = signals_map.get(best_item.cid)
+        if sig is not None:
+            final = max(20.0, blend(best_item, sig, scoring_cfg, domain=domain))
+            dur = best_item.e - best_item.s
+            risk_lvl, risk_flags = assess(dur, sig.speech_ratio, source_info, best_item.content_flags)
+            text = _get_clip_text(best_item.start_sid, best_item.end_sid, transcript.sentences)
+            c = Clip(
+                id=best_item.cid,
+                start=best_item.s,
+                end=best_item.e,
+                duration=round(dur, 3),
+                tier="C",
+                final_score=final,
+                llm_score=best_item.llm_score,
+                heat=sig.heat,
+                audio=sig.audio,
+                speech_ratio=sig.speech_ratio,
+                hook_text=best_item.hook_text,
+                topic=best_item.topic,
+                risk=risk_lvl,
+                risk_flags=risk_flags,
+                needs_context=best_item.needs_context,
+                context_fix=best_item.context_fix,
+            )
+            scored_candidates.append((final, c, text))
 
     # Sort descending by final score for deduplication
     scored_candidates.sort(key=lambda x: x[0], reverse=True)
@@ -233,6 +286,7 @@ def run(ctx: JobContext) -> None:
         scoring_cfg,
         domain=ctx.settings.project_domain,
         min_tier=ctx.options.min_tier,
+        quality_threshold=getattr(ctx.options, "quality_threshold", None),
         gemini_client=ctx.gemini,
         second_look=bool(getattr(ctx.options, "second_look", False)),
     )

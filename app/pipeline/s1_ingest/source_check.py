@@ -34,10 +34,15 @@ VIDEO_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{11}$")
 
 
 def parse_youtube_url(url: str) -> str:
-    """Validate and normalize a single YouTube video or finished livestream URL."""
+    """Validate and normalize a single YouTube video, finished livestream URL, or local file."""
     clean = url.strip()
     if not clean:
         raise InvalidUrl("Empty URL provided")
+
+    # Check for local file path
+    local_path = Path(clean[7:]) if clean.startswith("file://") else Path(clean)
+    if local_path.is_file():
+        return str(local_path.resolve())
 
     # Reject unsupported platforms or paths
     if "youtube.com/shorts/" in clean or "youtu.be/shorts/" in clean:
@@ -132,6 +137,38 @@ def run(ctx: JobContext) -> None:
 
     ctx.progress("source_check", 0.1, "Validating URL and fetching video metadata...")
     normalized_url = parse_youtube_url(ctx.job["url"])
+
+    # If local file, probe directly and write source_info
+    if Path(normalized_url).is_file():
+        from app.utils.ffmpeg import probe
+        p_info = probe(Path(normalized_url))
+        duration_s = p_info.duration
+        source_info = SourceInfo(
+            video_id=Path(normalized_url).stem,
+            url=normalized_url,
+            webpage_url=normalized_url,
+            title=Path(normalized_url).stem,
+            channel="Local Creator",
+            channel_url="local",
+            uploader="Local Creator",
+            upload_date=datetime.now(UTC).strftime("%Y%m%d"),
+            duration_s=round(duration_s, 3),
+            live_status="not_live",
+            license="Creative Commons",
+            width=p_info.width or 1920,
+            height=p_info.height or 1080,
+            fps=round(p_info.fps or 30.0, 3),
+            view_count=1000,
+            like_count=100,
+            description_head="Local offline test sample video",
+            chapters=[],
+            heatmap=[],
+            source_policy=SourcePolicyMatch(status="none"),
+            fetched_at=datetime.now(UTC).isoformat(),
+        )
+        ctx.write_artifact("source_info.json", source_info)
+        ctx.progress("source_check", 1.0, f"Source verified: {source_info.title} ({duration_s:.1f}s)")
+        return
 
     import yt_dlp
 

@@ -142,4 +142,5 @@ def run(ctx: JobContext) -> None:
                 update_clip(ctx.job_id, clip.id, conn=conn, status="failed", error=str(e))
             ctx.warning(f"Clip {clip.id} build failed: {e}")
 
+    ctx.write_artifact("build_done.json", {"schema_version": 1, "status": "done", "clips": total_clips})
     ctx.progress("build", 1.0, f"Stage build complete: processed {total_clips} clips")

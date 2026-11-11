@@ -8,7 +8,6 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import socket
 import subprocess
 import sys
 import urllib.error
@@ -134,7 +133,6 @@ def check_disk_space_d() -> CheckResult:
 def check_env_vars() -> CheckResult:
     weights_dir = os.environ.get("WEIGHTS_DIR", "D:\\Open_Source_Weights")
     ollama_models = os.environ.get("OLLAMA_MODELS", "")
-    hf_home = os.environ.get("HF_HOME", "")
 
     issues = []
     if not Path(weights_dir).exists():
@@ -178,10 +176,7 @@ def check_ffmpeg_and_nvenc() -> CheckResult:
 
 def check_ollama_service() -> CheckResult:
     host = os.environ.get("OLLAMA_HOST", "127.0.0.1:11434")
-    if not host.startswith("http"):
-        url = f"http://{host}/api/tags"
-    else:
-        url = f"{host}/api/tags"
+    url = f"http://{host}/api/tags" if not host.startswith("http") else f"{host}/api/tags"
 
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "shorts-engine/check"})

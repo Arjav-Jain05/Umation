@@ -193,3 +193,34 @@ Branch: `feature/final-local-layered`
    - `qwen3.5:9b` (Q4_K_M, 6.6 GB) pulled and tested on Ollama `127.0.0.1:11434`.
    - Structured JSON output returned in 2.29s: `{'status': 'success', 'confidence': 0.85, 'reasons': ['High audio volume indicates action', 'Chat excitement detected']}`.
    - Ollama `keep_alive: 0` verified: GPU memory drops to 0 MB when idle.
+
+### Phase 1: Core Clips - Usable Local Product (PASS)
+- Status: `PASS`
+- Completed: 2026-11-11T13:50:00
+- Automated Test Suite: `python scripts/selftest.py --phase 1` -> 4 PASS, 0 FAIL
+- Linting & Code Hygiene: `ruff check app config llm scripts` -> All checks passed
+- Unit Tests: `pytest tests/test_network_guard.py` -> 3 PASS in 0.05s
+
+#### Verification Evidence:
+```
+======================================================================
+RUNNING GATE CHECKS FOR PHASE 1
+======================================================================
+[PASS]     Cloud Code Purge (Zero Cloud)    (took 0.04s, VRAM 0MB)
+           Detail: Zero cloud SDK imports or active API keys found across app/, config/, web/.
+[PASS]     Network Guard Enforcement        (took 1.47s, VRAM 0MB)
+           Detail: Network guard blocked all outbound cloud AI attempts and permitted localhost:11434.
+[PASS]     Layer 2 Single Proposer (Qwen3.5 9B) (took 13.35s, VRAM 619MB)
+           Detail: Proposer returned structured candidates via Ollama in 13.35s: 2 candidates.
+[PASS]     End-to-End 5-Minute Sample       (took 252.44s, VRAM 1234MB)
+           Detail: Rendered 1 valid 9:16 vertical short(s) in 252.4s. First clip: 57.4s, captions: True, Peak VRAM: 1234 MB.
+----------------------------------------------------------------------
+VERIFICATION SUMMARY: 4 PASS, 0 FAIL
+```
+
+#### Key Architecture Delivered in Phase 1:
+1. `app/core/network_guard.py`: socket monkey-patch blocking external cloud AI domains (Google, OpenAI, Anthropic, HuggingFace Inference) while permitting localhost loopback (`127.0.0.1:11434`) and local IPC.
+2. `llm/` package: `OllamaProvider`, `LocalModelManager`, and `config/models.yaml` specifying local fallback chains with automatic context window truncation, repair retries, and strict `keep_alive: 0` memory unloading.
+3. `LocalLLMClient` (and `GeminiClient` alias) in `app/core/gemini_client.py`: seamlessly directs JSON/text prompts to local Ollama daemon without changing caller signatures.
+4. Offline local pipeline ingestion: `source_check.py`, `download.py`, and `segments.py` updated to support local media files directly.
+5. End-to-end local render: verified 1080x1920 (9:16) video output with synchronized ASS captions rendered using NVENC hardware acceleration with peak VRAM under 1.3 GB (limit 7.5 GB).

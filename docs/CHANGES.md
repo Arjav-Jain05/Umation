@@ -8,3 +8,12 @@ This file documents every decision, modification, default choice, and replaced c
 - **Checklist**: Created `docs/CHECKLIST.md` tracking all requirements by phase.
 - **Weights directory**: `D:\Open_Source_Weights` confirmed with >170 GB free space.
 - **Execution model**: Phased, autonomous loop with automated selftests per phase.
+
+## Phase 1: Core Clips (Usable Product)
+- **Network Guard**: Implemented `app/core/network_guard.py` patching `socket.create_connection` to strictly block all cloud AI domains (`google.genai`, `api.openai.com`, `anthropic.com`, etc.) while permitting local loopback (`127.0.0.1:11434`).
+- **Local Model Layer**: Implemented `llm/` package with `OllamaProvider`, `LocalModelManager`, and `config/models.yaml` defining fallback chains with automatic context window truncation, repair retries, and strict `keep_alive: 0` memory unloading.
+- **Client Replacement**: Replaced `GeminiClient` with `LocalLLMClient` in `app/core/gemini_client.py`. Supported all caller signatures including `generate_json`, `generate_text`, `call_json`, `call_text`, `generate_image`.
+- **Cloud Purge**: Removed all cloud SDK imports (`google-genai`) and external API keys from `app/`, `config/`, and `web/`.
+- **Local File Ingestion**: Updated `s1_ingest/source_check.py`, `s1_ingest/download.py`, and `s3_build/segments.py` to allow direct local file processing (`.mp4`, `.wav`) without network overhead.
+- **Resilience and Tiers**: Added `quality_threshold`, `tier_s/a/b/c` thresholds, and Tier C fallback to `app/pipeline/s2_select/planner.py` ensuring robust clip selection.
+- **End-to-End Validation**: Ran 5-minute video `samples/sample_5min.mp4` through full pipeline under offline network guard. Verified 9:16 vertical render (1080x1920) with ASS subtitles and peak VRAM of 1234 MB (ceiling: 7.5 GB).

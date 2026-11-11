@@ -9,7 +9,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import hashlib
+import contextlib
 import json
 import os
 import shutil
@@ -38,10 +38,8 @@ def setup_nvidia_dll_paths() -> None:
         ]
         for cdir in candidate_dirs:
             if cdir.exists():
-                try:
+                with contextlib.suppress(Exception):
                     os.add_dll_directory(str(cdir))
-                except Exception:
-                    pass
                 os.environ["PATH"] = str(cdir) + ";" + os.environ.get("PATH", "")
 
 
@@ -51,7 +49,7 @@ setup_nvidia_dll_paths()
 def load_manifest() -> dict[str, Any]:
     if MANIFEST_FILE.exists():
         try:
-            with open(MANIFEST_FILE, "r", encoding="utf-8") as f:
+            with open(MANIFEST_FILE, encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
             pass
