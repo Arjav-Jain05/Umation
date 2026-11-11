@@ -36,10 +36,14 @@ def mark_dead_regions(sentences: list[Sentence]) -> list[bool]:
 
 def make_chunks(
     sentences: list[Sentence],
-    minutes: int = 20,
-    overlap_s: int = 90,
+    minutes: int = 4,
+    overlap_s: int = 45,
 ) -> list[Chunk]:
-    """Slice sentences into overlapping 20-minute chunks cut on sentence boundaries."""
+    """Slice sentences into overlapping chunks cut on sentence boundaries.
+
+    Uses 4-minute chunks with 45s overlap to ensure prompt context easily fits
+    local LLM context windows (4096 tokens) without any token truncation.
+    """
     if not sentences:
         return []
 

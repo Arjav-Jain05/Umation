@@ -141,6 +141,54 @@ def run(ctx: JobContext) -> None:
         if not duplicate:
             kept_raw.append((ch, cand))
 
+    # Fallback seeding if LLM nominated zero candidates (Layer 1 sensor & heatmap seeding)
+    if not kept_raw and transcript.sentences:
+        logger.warning(
+            "[%s] Zero candidates nominated by LLM. Seeding fallback candidates from heatmap and speech hot zones.",
+            ctx.job_id,
+        )
+        # 1. Seed from YouTube heatmap peaks if present
+        if source_info.heatmap:
+            sorted_peaks = sorted(source_info.heatmap, key=lambda p: p.value, reverse=True)
+            for p in sorted_peaks[:5]:
+                # Find sentences overlapping [p.start, p.end]
+                sub_sids = [s.id for s in transcript.sentences if s.e >= p.start and s.s <= p.end]
+                if sub_sids:
+                    s_sid, e_sid = sub_sids[0], sub_sids[-1]
+                    dur = sid_map[e_sid].e - sid_map[s_sid].s
+                    if dur < 15.0 and e_sid + 1 in sid_map:
+                        e_sid = min(len(transcript.sentences) - 1, e_sid + 3)
+                    item = RawNominationItem(
+                        start_sid=s_sid,
+                        end_sid=e_sid,
+                        hook_sid=s_sid,
+                        reason=f"Audience heatmap peak (score {int(p.value * 100)})",
+                        hint_score=int(p.value * 100),
+                    )
+                    kept_raw.append((chunks[0] if chunks else Chunk(id="ch01", s=p.start, e=p.end, sentence_ids=[s_sid, e_sid]), item))
+
+        # 2. Seed from high-density speech windows if still empty
+        if not kept_raw:
+            curr_s = 0
+            while curr_s < len(transcript.sentences):
+                start_t = transcript.sentences[curr_s].s
+                # Walk forward until duration is ~30-45s
+                curr_e = curr_s
+                while curr_e < len(transcript.sentences) and (transcript.sentences[curr_e].e - start_t) < 35.0:
+                    curr_e += 1
+                curr_e = min(len(transcript.sentences) - 1, max(curr_s + 1, curr_e))
+                dur = transcript.sentences[curr_e].e - start_t
+                if 15.0 <= dur <= 75.0:
+                    item = RawNominationItem(
+                        start_sid=transcript.sentences[curr_s].id,
+                        end_sid=transcript.sentences[curr_e].id,
+                        hook_sid=transcript.sentences[curr_s].id,
+                        reason="Speech activity hot zone fallback",
+                        hint_score=50,
+                    )
+                    kept_raw.append((chunks[0] if chunks else Chunk(id="ch01", s=start_t, e=start_t + dur, sentence_ids=[curr_s, curr_e]), item))
+                curr_s = curr_e + 2
+
     candidates: list[Candidate] = []
     for cid_idx, (ch, cand) in enumerate(kept_raw):
         cid = f"n{cid_idx + 1:02d}"
