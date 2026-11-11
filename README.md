@@ -1,96 +1,116 @@
-# Shorts Engine
+# Shorts Engine (Offline & Unlimited Local Edition)
 
-Free, local Windows web app (FastAPI + vanilla HTML/CSS/JS on `127.0.0.1:8000`) that turns a single YouTube link (video or finished livestream VOD) into upload-ready vertical shorts (variable clip count, Part 1/2/3 splits, face-aware 9:16 layouts, animated captions, AI director effects, generated thumbnails, and metadata with mandatory credit block). Tuned for GTA 6 clipping.
+Free, 100% local Windows web app (FastAPI + vanilla HTML/CSS/JS on `127.0.0.1:8000`) that turns a single YouTube link or local video file into upload-ready vertical shorts: variable clip count, Part 1/2/3 splits, face-aware 9:16 layouts, 7 animated caption presets, AI director effects, generated thumbnails, and metadata with mandatory creator credit block. Tuned for GTA 6 and gaming clipping.
+
+**Zero Cloud AI Runtime Calls:** The entire pipeline runs completely offline on your local GPU/CPU with Ollama and faster-whisper. No cloud API keys, subscriptions, or upload bandwidth required.
 
 **The user uploads manually. The app never uploads anything to any platform.**
 
 ---
 
-## 1. Requirements
+## 1. Offline / Unlimited Mode
 
-- **Operating System:** Windows 11 (64-bit).
-- **GPU:** NVIDIA GeForce RTX 4060 (8 GB VRAM) or compatible NVIDIA GPU with up-to-date Game Ready / Studio drivers.
-- **Python:** 3.12 (specifically tested on Python 3.12.10).
-- **System Tools:**
-  - `ffmpeg` (Gyan full build with `h264_nvenc` support) and `ffprobe` in `PATH`.
-  - `deno` in `PATH` (used as the secure JS challenge solver for `yt-dlp`).
-- **Disk Space:** At least 30 GB free on the target working drive.
-- **API Key:** Free Gemini API key from [Google AI Studio](https://aistudio.google.com/).
+In this edition, all cloud dependencies (Gemini, OpenAI, Anthropic) have been purged and replaced with an audience-aware, layered, local open-source pipeline:
+
+1. **Local Audio Transcription (Layer 0):** `faster-whisper` (`large-v3-turbo` / `large-v3`) running on NVIDIA CUDA float16. Model is loaded only during the transcribe stage and freed immediately (`keep_alive: 0`).
+2. **Audience-First Signals (Section 4):** YouTube most replayed heatmap (normalized 0-1), timestamped comments extraction with like weighting in 10s bins, live stream chat replay activity spikes and hype keyword detection, and chapter boundaries as soft topic breaks. Fail-soft: missing signals are marked missing, never 0.
+3. **Multi-Signal Layer 1 Sensors:**
+   - **Acoustic Loudness & Z-Scores:** RMS energy profiling, peak bursts, and silence-to-explosion suspense/payoff detection.
+   - **Sound Events Detection:** AudioSet acoustic feature classifier for explosions, gunshots, screams, laughter, cheering, tire squeals, and sirens.
+   - **Voice Emotion & Hype Lexicon:** Speaking pace (WPM), exclamation density, and RapidFuzz matching against gaming glossaries (`profiles/gaming_gta6.yaml`).
+   - **Visual Motion & Scene Cuts:** 2 fps OpenCV grayscale frame difference and color histogram scene cut detection.
+   - **Topic Segmentation & Dedup:** Sentence similarity topic boundary segmentation and candidate agreement dedup (>50% time overlap).
+4. **Local LLM Proposers & Critic (Layer 2 & 3):** Ollama daemon on `127.0.0.1:11434` running `qwen3.5:9b` (Q4_K_M) with fallback chains, automatic CUDA OOM recovery, and context window reduction.
+5. **Head-to-Head Tournament Reranker (Layer 4):** Shuffled batch tournaments (5-6 clips per batch, multiple random shuffles) eliminating LLM presentation position bias.
+6. **Layer 6 Dynamic Fusion:** Composite viral quality scoring ($0-100$) with dynamic weight redistribution when audience signals are unavailable.
+7. **Live Quality Slider UI:** Drag the threshold slider ($0-100$) on the results page to filter candidates in real time with **ZERO model calls**. Preset chips: Strict (80), Balanced (65), Loose (50), and Otsu Suggest.
+8. **7 Caption Presets:** Select from `modern_box`, `classic_yellow`, `minimal_shadow`, `cyan`, `yellow_box`, `neon_green`, and `red_gaming`.
+9. **Hardware Encoding:** Ultra-fast 1080x1920 9:16 rendering with `h264_nvenc` and synchronized ASS subtitles using absolute PTS alignment.
+10. **Calibrated Personal Ranker:** Collects thumbs up/down feedback into `feedback/ratings.jsonl` and trains a `HistGradientBoostingClassifier` with feature importance audits (`scripts/train_ranker.py`).
 
 ---
 
-## 2. Installation
+## 2. Requirements
+
+- **Operating System:** Windows 11 (64-bit).
+- **GPU:** NVIDIA GeForce RTX 4060 (8 GB VRAM) with NVIDIA driver 621.14+ (Strict peak VRAM ceiling: < 7.5 GB).
+- **Python:** 3.12 (specifically tested on Python 3.12.10).
+- **Local AI Daemon:** [Ollama](https://ollama.com/) running on `127.0.0.1:11434` with model `qwen3.5:9b`.
+- **System Tools:**
+  - `ffmpeg` (Gyan full build with `h264_nvenc` support) and `ffprobe` in `PATH`.
+  - `deno` in `PATH` (used as the secure JS challenge solver for `yt-dlp`).
+- **Disk Space:** At least 60 GB free on `D:\Open_Source_Weights` for offline model weights.
+
+---
+
+## 3. Installation & Setup
 
 1. **Clone the repository:**
    ```powershell
    git clone <repo-url>
    cd Umation
    ```
-2. **Create Python 3.12 virtual environment:**
+2. **Activate Python virtual environment:**
    ```powershell
-   python -m venv .venv
    .\.venv\Scripts\Activate.ps1
-   pip install --upgrade pip
    pip install -r requirements.txt
    ```
-3. **Install system binaries (if not already installed):**
+3. **Verify weights directory:**
+   Ensure `D:\Open_Source_Weights` exists with:
+   - `whisper/` (faster-whisper `large-v3` / `large-v3-turbo`)
+   - `ollama/` (`qwen3.5:9b`)
+4. **Start the Ollama daemon:**
    ```powershell
-   winget install --id Gyan.FFmpeg -e
-   winget install --id DenoLand.Deno -e
+   $env:OLLAMA_MODELS = "D:\Open_Source_Weights\ollama"
+   $env:OLLAMA_HOST = "127.0.0.1:11434"
+   ollama serve
    ```
-4. **Download bundled models & fonts:**
+5. **Run the preflight verification:**
    ```powershell
-   python scripts/download_models.py
+   python scripts/selftest.py --phase 0
    ```
 
 ---
 
-## 3. First Run
+## 4. Launching the App
 
-1. Copy `.env.example` to `.env`:
+1. Start the application server:
    ```powershell
-   Copy-Item .env.example .env
+   .\start.bat
    ```
-2. Open `.env` in a text editor and paste your Google AI Studio API key:
-   ```env
-   GEMINI_API_KEY=AIzaSy...
-   ```
-3. Verify your environment passes all checks:
+   Or launch directly via uvicorn:
    ```powershell
-   python scripts/check_env.py
+   python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
    ```
-4. Launch the application:
-   - Double-click `start.bat`, or run:
-     ```powershell
-     .\start.bat
-     ```
-   - The app will automatically open your browser at `http://127.0.0.1:8000`.
+2. Open your browser at `http://127.0.0.1:8000`.
 
 ---
 
-## 4. Using the App
+## 5. Using the App
 
-1. **Paste a YouTube URL:** Video or finished livestream VOD (e.g. `https://www.youtube.com/watch?v=...`).
-2. **Acknowledge Fair Use:** Tick the mandatory responsibility checkbox confirming you understand fair use and credit policies.
-3. **Configure Options (optional):** Choose minimum tier threshold (A, B, C), layout override (gameplay, facecam, talking head), max duration (20–90 s), effect preferences, **Fast lane** (single-round judging for rapid release-week turnaround), and **Second look** (rescues borderline clips scoring 52–59).
-4. **Click "Find viral clips":** The pipeline ingests audio, transcribes with Whisper on CUDA, nominates and judges moments with Gemini, blends YouTube replay heatmaps, cuts video ranges, and packages vertical clips.
-5. **Review, Edit & Export:**
-   - **Interactive Editor:** Click "Edit Clip" on any card to trim start/end boundaries, click transcript words to jump playback or toggle caption emphasis styling, and customize or delete AI director effect overlays. Click "Save & Re-render" to rebuild the clip in seconds.
-   - **Bulk Actions:** Approve or reject multiple clips, click "Download all approved" for a streaming `.zip` bundle, or click "Open output folder" to inspect files in Windows Explorer.
-   - **Log Performance & Calibrate:** Once uploaded manually, click "Log result" on a clip to enter its view/like counts. Run `python scripts/calibrate_scoring.py` to recalibrate score blending weights using Spearman rank correlation.
+1. **Paste a YouTube Link or Local File:** Paste a URL (e.g. `https://www.youtube.com/watch?v=...`) or a local video path (`samples/sample_5min.mp4`).
+2. **Acknowledge Fair Use:** Tick the mandatory responsibility checkbox confirming you understand fair use and attribution requirements (`docs/SOURCE_POLICY.md`).
+3. **Select Pipeline Preset:**
+   - **Fast:** Whisper, Audio Energy, Single Proposer, Layer 6 Fusion.
+   - **Balanced:** Adds Critic, Story Arc Stitcher, and Tournament Reranker.
+   - **Best:** Full funnel including Layer 5 Visual Evidence, Metadata Ensemble, and Thumbnails.
+4. **Click "Find viral clips":** The pipeline transcribes, senses, nominates, judges, and populates the candidate store.
+5. **Adjust Live Quality Slider:** On the results page, drag the slider to filter clips instantly with zero model calls. Use preset chips (Strict 80, Balanced 65, Loose 50, Otsu Suggest) or pin borderline clips.
+6. **Click "Render selected":** NVENC hardware renders your selected clips with burned-in animated captions and packages them for upload.
+7. **Rate Clips:** Click thumbs up/down to log training feedback into `feedback/ratings.jsonl`.
 
 ---
 
-## 5. Output Folder Structure
+## 6. Output Folder Structure
 
-Final output packages are saved locally under:
+Final packages are saved locally under:
 ```
 output/<slug>-<video_id>/<clip_id>_<tier>[_part<k>of<n>]/
   clip.mp4                # 1080x1920 vertical short (H.264 / AAC)
   cover_9x16.jpg          # 1080x1920 cover image for Reels / Shorts
   thumb_16x9.jpg          # 1280x720 horizontal thumbnail
   metadata.txt            # Ready-to-copy title, description, tags, hashtags, credit
-  metadata.json           # Structured JSON artifact with review info
+  metadata.json           # Structured JSON artifact with review info and layer scores
   captions.srt            # Clean subtitle file
   edit_list.json          # Directed effects event timeline
   credit.txt              # Factual credit and source attribution block
@@ -99,38 +119,27 @@ output/<slug>-<video_id>/<clip_id>_<tier>[_part<k>of<n>]/
 
 ---
 
-## 6. Troubleshooting
+## 7. Quality Gate Verification
 
-| Symptom | Likely Cause | Resolution |
-|---|---|---|
-| `h264_nvenc` fails | Outdated GPU driver or wrong ffmpeg build | Update NVIDIA drivers; reinstall Gyan FFmpeg full build. Automatic fallback to `libx264` is supported. |
-| Whisper `cudnn`/`cublas` DLL error | Missing CUDA DLLs in environment | Verify `nvidia-cublas-cu12` and `nvidia-cudnn-cu12` are installed in `.venv`. |
-| Transcript repetition loops | Hallucination loop on low audio | Pipeline enforces `condition_on_previous_text=False` and Silero VAD filtering. |
-| Captions missing in video | Windows path colon (`C:`) issue in filter | Ass filter runs with relative paths and `fontsdir=fonts`. |
-| Captions display wrong font | Missing system or asset font | Ensure fonts exist in `assets/fonts/` and run `python scripts/download_models.py`. |
-| Clip starts with silence | Refine hook trim not applied | Pipeline trims leading silence based on Whisper word timestamps. |
-| Face crop jitters | Smoothing disabled or low window | Exponential moving average and dead-zone smoothing are enforced in `layout.py`. |
-| Gemini returns invalid JSON | Schema violation or temperature high | Structured JSON mode enforced; code automatically retries with schema error appended. |
-| Job stuck at 0% | Worker thread dead or hung | Inspect `data/logs/app.log`; restart app and job will automatically resume. |
-| YouTube 403 / extraction error | Outdated `yt-dlp` extractor | Run `python scripts/update_ytdlp.py` and ensure Deno is installed. |
-| Disk space filling up | Segments retained after processing | Use the "Clean up" button in the UI or adjust `CLEAN_AFTER_DAYS` in `.env`. |
+To verify all pipeline phases:
+```powershell
+python scripts/selftest.py --phase 0   # Environment, GPU, Whisper CUDA, Ollama JSON
+python scripts/selftest.py --phase 1   # Cloud code purge, network guard, NVENC render
+python scripts/selftest.py --phase 2   # Candidate store, zero-model slider, 7 caption presets
+python scripts/selftest.py --phase 3   # Audience signals, Layer 1 sensors, dynamic fusion
+python scripts/selftest.py --phase 4   # Multi-model agreement, critic, rerank, ranker training
+python scripts/selftest.py --phase 5   # Visual evidence, metadata, thumbnails, presets
+python scripts/selftest.py --all       # Full gate test suite across all 6 phases
+```
 
 ---
 
-## 7. Privacy: What Goes to Gemini?
+## 8. Documentation Index
 
-- **Local Execution:** Audio downloading, transcription (`faster-whisper`), video cutting, face detection (`MediaPipe`), layouts, captions, effects composition, and final rendering run 100% locally on your machine. No video or audio is ever uploaded to external cloud services.
-- **External Calls (Gemini API):**
-  - Plain-text transcript chunks (20-minute windows) for moment nomination and judging.
-  - Video title and chapter headings for topic context.
-  - Short prompts for title, description, and thumbnail concept generation.
-- **API Keys:** Stored strictly in local `.env`; never transmitted to third parties, logged, or checked into version control.
-
----
-
-## 8. Safe Working Practice & Fair Use Policy
-
-1. **Credit Block Mandatory:** Every generated description includes a complete, attribution block linking to the original creator's channel and video.
-2. **Risk Flags:** The engine flags potential fair-use risks (e.g. low commentary, music-heavy segments, unverified claims) directly in the UI.
-3. **No Automatic Uploading:** The application has no upload features, credentials, or API integrations with YouTube or Instagram. You must review and upload clips manually.
-4. **Legal Disclaimer:** The tool assists with formatting, clipping, and fair-use attribution but does not provide legal advice.
+- `docs/SPEC.md`: Full specification (`ANTIGRAVITY_PROMPT_FINAL_v4.md`).
+- `docs/SOURCE_POLICY.md`: Creator attribution, fair use reality, and risk assessment policy.
+- `docs/MODELS.md`: Local models registry, sizes, licenses, and verified peak VRAM.
+- `docs/REFERENCES.md`: Architecture analysis of reference open-source clipping projects.
+- `docs/ABLATION_REPORT.md`: Comparative ablation report (Qwen-only vs Dual Proposers vs Full Funnel).
+- `docs/CHANGES.md`: Complete audit of all architectural upgrades across Phases 0–5.
+- `docs/PROGRESS.md`: Real-time phase milestone log with verified command outputs.

@@ -42,3 +42,12 @@ This file documents every decision, modification, default choice, and replaced c
 - **Calibrated Personal Ranker**: Implemented `app/core/feedback.py` logging thumbs up/down into `feedback/ratings.jsonl` and `scripts/train_ranker.py` training a `HistGradientBoostingClassifier` with feature importance audits.
 - **Model Bake-Off Harness**: Implemented `scripts/bakeoff.py` benchmarking candidate LLMs on prompt validity rate, latency, token throughput, and Spearman rank correlation.
 - **Automated Verification**: Created `tests/test_phase_4_multi_model.py` (7 tests passing) and added Phase 4 gate checks to `scripts/selftest.py` (4 PASS, 0 FAIL).
+
+## Phase 5: Visual Layer, Metadata, Thumbnails, Polish
+- **Layer 5 Visual Evidence**: Implemented `app/pipeline/sensors/visual_evidence.py` providing 1 fps frame sampling inside candidate shortlist ranges, dead footage detection (static frames variance < 2.0 or black frames mean < 8.0), optical motion action scoring (0-100), and on-screen trigger word detection with RapidOCR/fallback regexes.
+- **Layer 8 Metadata Ensemble & Creator Credit**: Updated `app/pipeline/s5_package/metadata.py` enforcing strict title length limits (<70 chars), generating high-curiosity titles, 15 hashtags, and source risk notes. Verified `app/pipeline/s5_package/credit.py` enforcing mandatory creator credit blocks. Added `docs/SOURCE_POLICY.md` explaining fair use reality and creator rights.
+- **Layer 9 Artwork Thumbnails**: Updated `app/pipeline/s5_package/thumbnail_generate.py` generating both 1280x720 (16:9 standard) and 1080x1920 (9:16 vertical cover) artwork using procedural gradients and vector art, verified against video frame leakage using perceptual average hash (ahash distance > 8).
+- **Pipeline Presets**: Updated `app/core/schemas.py` with `JobOptions.apply_preset()` supporting `fast`, `balanced`, and `best` modes.
+- **Ablation Study**: Implemented `scripts/ablation.py` comparing Variant A (Qwen-only), Variant B (Dual Proposers), and Variant C (Full Funnel), and documented results in `docs/ABLATION_REPORT.md`.
+- **Offline Documentation**: Updated `docs/MODELS.md` with verified local weights storage and measured VRAM usage, and updated `README.md` to document strict offline operation.
+- **Automated Verification**: Created `tests/test_phase_5_visual_metadata.py` (7 tests passing) and added Phase 5 gate checks to `scripts/selftest.py` (4 PASS, 0 FAIL). Full system gate check `scripts/selftest.py --all` passes all 24 checks across Phases 0 to 5.

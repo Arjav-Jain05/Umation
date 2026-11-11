@@ -203,3 +203,18 @@ class FakeGeminiClient:
     def generate_image(self, prompt: str, aspect: str = "16:9") -> Image.Image:
         w, h = (1080, 1920) if aspect == "9:16" else (1280, 720)
         return Image.new("RGB", (w, h), color=(30, 30, 45))
+
+
+class TokenBucket:
+    """Rate limiter token bucket maintained for backward compatibility."""
+
+    def __init__(self, rpm: float = 60.0) -> None:
+        self.capacity = float(rpm)
+        self.tokens = float(rpm)
+
+    def acquire(self) -> None:
+        if self.tokens > 0:
+            self.tokens -= 0.1
+
+
+GeminiClient = LocalLLMClient

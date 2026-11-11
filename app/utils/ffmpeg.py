@@ -216,11 +216,11 @@ def extract_frame(
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
 
-    args = ["-ss", str(max(0.0, t)), "-i", str(video), "-frames:v", "1"]
+    args = ["-y", "-ss", str(max(0.0, t)), "-i", str(video), "-frames:v", "1", "-pix_fmt", "yuvj420p"]
     if max_side is not None and max_side > 0:
         vf = f"scale='min({max_side},iw)':'min({max_side},ih)':force_original_aspect_ratio=decrease"
         args.extend(["-vf", vf])
-    args.append(str(out))
+    args.extend(["-update", "1", str(out)])
 
     run_ffmpeg(args, check=True)
     return out
