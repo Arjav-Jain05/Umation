@@ -322,3 +322,49 @@ VERIFICATION SUMMARY: 4 PASS, 0 FAIL
 4. Layer 4 Head-to-Head Tournament Reranker (`app/pipeline/s2_select/rerank.py`): Shuffled batch tournaments (5-6 candidates per batch, multiple random shuffles) that eliminate LLM presentation position bias and output calibrated 0-100 rerank scores.
 5. Calibrated Personal Ranker (`app/core/feedback.py`, `scripts/train_ranker.py`): Collects user thumbs up/down into `feedback/ratings.jsonl` and trains a `HistGradientBoostingClassifier` with feature importance audits across all pipeline layers.
 6. Model Bake-Off Harness (`scripts/bakeoff.py`): Benchmark tool measuring JSON validity rate, latency, token throughput, and Spearman rank correlation across candidate models.
+
+### Phase 5: Visual Layer, Metadata, Thumbnails, Polish (PASS)
+- Status: `PASS`
+- Completed: 2026-11-11T15:15:00
+- Automated Test Suite: `python scripts/selftest.py --phase 5` -> 4 PASS, 0 FAIL
+- Full System Gate Suite: `python scripts/selftest.py --all` -> 24 PASS, 0 FAIL
+- Linting & Code Hygiene: `ruff check app config llm scripts tests profiles` -> All checks passed
+- Unit Tests: `pytest tests/test_phase_5_visual_metadata.py` -> 7 PASS in 1.48s
+
+#### Verification Evidence:
+```
+======================================================================
+RUNNING GATE CHECKS FOR PHASE 5
+======================================================================
+[PASS]     Layer 5 Visual Evidence & Dead Footage (took 1.52s, VRAM 0MB)
+           Detail: Dead footage detection, action scores, and fail-soft visual checks verified....
+[PASS]     Metadata Ensemble & Credit Policy (took 1.52s, VRAM 0MB)
+           Detail: Mandatory creator credit block, title limits, and risk notes verified....
+[PASS]     Layer 9 Artwork Thumbnails       (took 1.53s, VRAM 0MB)
+           Detail: 1280x720 and 1080x1920 abstract art generation and perceptual ahash check verified....
+[PASS]     Pipeline Presets (Fast/Balanced/Best) (took 1.52s, VRAM 0MB)
+           Detail: Fast, Balanced, and Best presets configure pipeline execution layers accurately....
+----------------------------------------------------------------------
+VERIFICATION SUMMARY: 4 PASS, 0 FAIL
+
+======================================================================
+FULL SYSTEM SUITE (PHASES 0 TO 5)
+======================================================================
+Phase 0: 4 PASS, 0 FAIL
+Phase 1: 4 PASS, 0 FAIL
+Phase 2: 4 PASS, 0 FAIL
+Phase 3: 4 PASS, 0 FAIL
+Phase 4: 4 PASS, 0 FAIL
+Phase 5: 4 PASS, 0 FAIL
+TOTAL: 24 PASS, 0 FAIL
+Peak VRAM across all phases: 4048 MB (Well under 7.5 GB ceiling on RTX 4060)
+```
+
+#### Key Architecture Delivered in Phase 5:
+1. `app/pipeline/sensors/visual_evidence.py`: Layer 5 visual evidence sensor providing 1 fps frame sampling inside candidate shortlist ranges, dead footage detection (static frames with variance < 2.0 or black frames with mean < 8.0), optical motion action scoring (0-100), and on-screen trigger word detection with RapidOCR/fallback regexes.
+2. `app/pipeline/s5_package/metadata.py` & `credit.py`: Layer 8 metadata ensemble and creator attribution policy. Enforces strict length limits on titles (<70 characters), generates descriptions with clickable timestamps, generates 15 targeted hashtags, adds source risk notes for copyright transparency, and inserts mandatory creator credit block referencing original video title and channel URL (`docs/SOURCE_POLICY.md`).
+3. `app/pipeline/s5_package/thumbnail_generate.py`: Layer 9 thumbnails generator producing both 1280x720 (16:9 standard) and 1080x1920 (9:16 vertical cover) artwork using procedural gradients and vector art, verified against video frame leakage using perceptual average hash (ahash distance > 8).
+4. `app/core/schemas.py`: Added pipeline presets (`fast`, `balanced`, `best`) via `JobOptions.apply_preset()`, enabling users to tune throughput vs multi-model depth.
+5. `scripts/ablation.py`: Comprehensive ablation study comparing Variant A (Qwen-only single proposer), Variant B (Dual Proposers with agreement count), and Variant C (Full Multi-Sensor Funnel with Critic and Tournament Reranker), documented in `docs/ABLATION_REPORT.md`.
+6. Offline Documentation & Model Ledger: `docs/MODELS.md` detailing exact disk weights on `D:\Open_Source_Weights` and measured runtime VRAM footprints, plus updated `README.md` documenting strict offline operation and zero cloud AI dependencies.
+

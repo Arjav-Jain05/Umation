@@ -1097,6 +1097,159 @@ def run_phase_4_checks() -> list[GateCheckResult]:
     ]
 
 
+def check_phase_5_visual_evidence() -> GateCheckResult:
+    """Verify Layer 5 visual evidence and dead footage detection."""
+    t0 = time.time()
+    res = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "tests/test_phase_5_visual_metadata.py",
+            "-k",
+            "test_dead_frame_detection or test_visual_action_level or test_inspect_candidate_visuals_fail_soft",
+        ],
+        cwd=str(WORKSPACE_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    dur = time.time() - t0
+    if res.returncode == 0:
+        return GateCheckResult(
+            phase=5,
+            name="Layer 5 Visual Evidence & Dead Footage",
+            status="PASS",
+            output="Dead footage detection, action scores, and fail-soft visual checks verified.",
+            duration_s=dur,
+        )
+    return GateCheckResult(
+        phase=5,
+        name="Layer 5 Visual Evidence & Dead Footage",
+        status="FAIL",
+        output=f"Test failed: {res.stderr or res.stdout}",
+        duration_s=dur,
+    )
+
+
+def check_phase_5_metadata_and_credits() -> GateCheckResult:
+    """Verify Layer 8 metadata assembly and mandatory Creator Credit Block."""
+    t0 = time.time()
+    res = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "tests/test_phase_5_visual_metadata.py",
+            "-k",
+            "test_credit_block_mandatory or test_validate_and_fix_metadata",
+        ],
+        cwd=str(WORKSPACE_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    dur = time.time() - t0
+    if res.returncode == 0:
+        return GateCheckResult(
+            phase=5,
+            name="Metadata Ensemble & Credit Policy",
+            status="PASS",
+            output="Mandatory creator credit block, title limits, and risk notes verified.",
+            duration_s=dur,
+        )
+    return GateCheckResult(
+        phase=5,
+        name="Metadata Ensemble & Credit Policy",
+        status="FAIL",
+        output=f"Test failed: {res.stderr or res.stdout}",
+        duration_s=dur,
+    )
+
+
+def check_phase_5_thumbnails() -> GateCheckResult:
+    """Verify Layer 9 thumbnail art generation (1280x720 and 1080x1920) and anti-frame check."""
+    t0 = time.time()
+    res = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "tests/test_phase_5_visual_metadata.py",
+            "-k",
+            "test_pillow_thumbnail_generation",
+        ],
+        cwd=str(WORKSPACE_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    dur = time.time() - t0
+    if res.returncode == 0:
+        return GateCheckResult(
+            phase=5,
+            name="Layer 9 Artwork Thumbnails",
+            status="PASS",
+            output="1280x720 and 1080x1920 abstract art generation and perceptual ahash check verified.",
+            duration_s=dur,
+        )
+    return GateCheckResult(
+        phase=5,
+        name="Layer 9 Artwork Thumbnails",
+        status="FAIL",
+        output=f"Test failed: {res.stderr or res.stdout}",
+        duration_s=dur,
+    )
+
+
+def check_phase_5_pipeline_presets() -> GateCheckResult:
+    """Verify pipeline presets (Fast, Balanced, Best)."""
+    t0 = time.time()
+    res = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "tests/test_phase_5_visual_metadata.py",
+            "-k",
+            "test_job_options_presets",
+        ],
+        cwd=str(WORKSPACE_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    dur = time.time() - t0
+    if res.returncode == 0:
+        return GateCheckResult(
+            phase=5,
+            name="Pipeline Presets (Fast/Balanced/Best)",
+            status="PASS",
+            output="Fast, Balanced, and Best presets configure pipeline execution layers accurately.",
+            duration_s=dur,
+        )
+    return GateCheckResult(
+        phase=5,
+        name="Pipeline Presets (Fast/Balanced/Best)",
+        status="FAIL",
+        output=f"Test failed: {res.stderr or res.stdout}",
+        duration_s=dur,
+    )
+
+
+def run_phase_5_checks() -> list[GateCheckResult]:
+    return [
+        check_phase_5_visual_evidence(),
+        check_phase_5_metadata_and_credits(),
+        check_phase_5_thumbnails(),
+        check_phase_5_pipeline_presets(),
+    ]
+
+
 # =====================================================================
 # Main runner
 # =====================================================================
@@ -1129,6 +1282,8 @@ def main() -> int:
             results = run_phase_3_checks()
         elif phase == 4:
             results = run_phase_4_checks()
+        elif phase == 5:
+            results = run_phase_5_checks()
         else:
             print(f"[INFO] Phase {phase} gate checks not yet activated.")
             results = []

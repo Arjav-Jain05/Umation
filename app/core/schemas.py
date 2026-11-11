@@ -372,6 +372,32 @@ class JobOptions(BaseModel):
     max_height: int = Field(default=1080, description="Video download resolution height")
     max_source_height: int | None = Field(default=None, description="Alias for max_height")
     caption_preset: str = Field(default="modern_box", description="modern_box | classic_yellow | minimal_shadow | cyan | yellow_box | neon_green | red_gaming")
+    preset: str = Field(default="balanced", description="Pipeline preset: fast | balanced | best")
+    enable_visual_layer: bool = Field(default=True, description="Enable Layer 5 visual evidence inspection")
+    enable_critic: bool = Field(default=True, description="Enable Layer 3 Critic review")
+    enable_rerank: bool = Field(default=True, description="Enable Layer 4 Head-to-Head Reranker")
+    enable_thumbnails: bool = Field(default=True, description="Enable Layer 9 Thumbnails generation")
+
+    def apply_preset(self) -> None:
+        """Configure pipeline layer flags according to preset."""
+        p = (self.preset or "balanced").lower()
+        if p == "fast":
+            self.enable_visual_layer = False
+            self.enable_critic = False
+            self.enable_rerank = False
+            self.second_look = False
+            self.fast_mode = True
+        elif p == "balanced":
+            self.enable_visual_layer = False
+            self.enable_critic = True
+            self.enable_rerank = True
+            self.second_look = False
+        elif p == "best":
+            self.enable_visual_layer = True
+            self.enable_critic = True
+            self.enable_rerank = True
+            self.second_look = True
+            self.enable_thumbnails = True
 
 
 class JobCreate(BaseModel):

@@ -49,6 +49,7 @@ class Metadata(BaseModel):
     tags_youtube: str
     risk: str = "low"
     risk_flags: list[str] = Field(default_factory=list)
+    source_risk_notes: str = ""
     thumbnail: dict[str, Any] = Field(default_factory=dict)
 
 

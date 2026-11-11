@@ -23,6 +23,7 @@ from app.pipeline.sensors.timeline_generator import (
     generate_timeline_and_hot_zones,
 )
 from app.pipeline.sensors.topic_segmenter import compute_candidate_overlap, detect_topic_boundaries
+from app.pipeline.sensors.visual_evidence import VisualEvidenceResult, inspect_candidate_visuals
 from app.pipeline.sensors.voice_emotion import (
     compute_window_wpm,
     match_hype_lexicon,
@@ -36,6 +37,7 @@ __all__ = [
     "SoundEventItem",
     "SoundEventsProfile",
     "TimelineEvent",
+    "VisualEvidenceResult",
     "compute_candidate_overlap",
     "compute_window_wpm",
     "detect_topic_boundaries",
@@ -44,6 +46,7 @@ __all__ = [
     "extract_video_motion",
     "format_timeline_for_prompt",
     "generate_timeline_and_hot_zones",
+    "inspect_candidate_visuals",
     "match_hype_lexicon",
     "score_audio_window",
     "score_motion_window",

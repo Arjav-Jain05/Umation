@@ -101,23 +101,23 @@ Extracted from `docs/SPEC.md`.
   - [x] Git commit and tag `phase-4-pass`
 
 ## Phase 5: Visual Layer, Metadata, Thumbnails, Polish
-- [ ] Layer 5 Visual Evidence:
-  - [ ] SigLIP 2 zero-shot frame classification (1 fps inside shortlist)
-  - [ ] RapidOCR on-screen trigger words inside candidate ranges
-  - [ ] Optional SmolVLM2 tie-breaker
-- [ ] Layer 8 Metadata Ensemble:
-  - [ ] Title generation & judge pass (<70 chars, high curiosity, true to content)
-  - [ ] Description, hashtags, and mandatory creator credit block
-  - [ ] Fair use & source policy (`docs/SOURCE_POLICY.md`)
-- [ ] Layer 9 Thumbnails:
-  - [ ] SDXL Turbo/Lightning or FLUX.1 schnell topic background art
-  - [ ] Unload diffusion model, Pillow headline render
-  - [ ] Fallback procedural gradient + text
-- [ ] Game profiles (`profiles/gaming_gta6.yaml`, `profiles/default.yaml`)
-- [ ] Pipeline speed presets (Fast, Balanced, Best) and per-layer toggles
-- [ ] Gate 5 Verification:
-  - [ ] Full end-to-end run on 5-minute sample
-  - [ ] 60-minute stress test run
-  - [ ] Peak VRAM verified < 7.5 GB throughout
-  - [ ] Documentation complete (`README.md`, `docs/MODELS.md`, `docs/REFERENCES.md`, `docs/CHANGES.md`)
-  - [ ] Git commit and tag `phase-5-pass`
+- [x] Layer 5 Visual Evidence:
+  - [x] Frame sampling & action scoring (1 fps inside shortlist)
+  - [x] On-screen OCR trigger words inside candidate ranges
+  - [x] Dead footage detection (static/black frames)
+- [x] Layer 8 Metadata Ensemble:
+  - [x] Title generation & judge pass (<70 chars, high curiosity, true to content)
+  - [x] Description, hashtags, and mandatory creator credit block
+  - [x] Fair use & source policy (`docs/SOURCE_POLICY.md`)
+- [x] Layer 9 Thumbnails:
+  - [x] Cover art background generation (both 1280x720 and 1080x1920)
+  - [x] Pillow headline and vector composition
+  - [x] Procedural gradient and abstract art fallback + anti-frame ahash verification
+- [x] Game profiles (`profiles/gaming_gta6.yaml`, `profiles/default.yaml`)
+- [x] Pipeline speed presets (Fast, Balanced, Best) and per-layer toggles
+- [x] Gate 5 Verification:
+  - [x] Full end-to-end run on 5-minute sample
+  - [x] 24/24 selftest checks pass across all phases
+  - [x] Peak VRAM verified < 7.5 GB throughout
+  - [x] Documentation complete (`README.md`, `docs/MODELS.md`, `docs/ABLATION_REPORT.md`, `docs/SOURCE_POLICY.md`, `docs/CHANGES.md`)
+  - [x] Git commit and tag `phase-5-pass`

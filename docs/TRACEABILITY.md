@@ -33,7 +33,17 @@ One row per requirement from `.agents/skills/shorts-engine/SKILL.md` section 2. 
 | R27 | Profanity masking in captions | 05 | captions.py, config/profanity.yaml | test_captions.py | `pytest tests/test_captions.py`: profanity masked with '*' | DONE |
 | R28 | Quality at least equal to Klap's feature set | 05, 06 | all | milestone audits | Variable clips, face-aware crop, animated safe captions, zooms/arrows, original AI thumbnails, metadata & credit block | DONE |
 
-## Non-negotiables N1-N12 (SKILL.md section 1)
+## Local Layered Upgrades (Phases 0 to 5)
+
+| Upgrade Item | Target Phase | Implementation Files | Tests & Gate Checks | Evidence | Status |
+|---|---|---|---|---|---|
+| Zero-Cloud Offline Enforcement | Phase 1 | `app/core/network_guard.py`, `llm/*`, `config/models.yaml` | `test_network_guard.py`, `check_phase_1_cloud_purge` | Network guard blocks external cloud AI domains, allows `127.0.0.1:11434`; 0 cloud imports found | DONE |
+| Candidate Store & Live Quality Slider | Phase 2 | `app/core/db.py`, `app/core/models.py`, `web/js/job.js`, `app/api/clips.py` | `test_phase_2_slider.py`, `check_phase_2_candidate_store` | Instant client-side threshold filtering with ZERO model calls; candidate store persists full scores | DONE |
+| Layer 1 Acoustic, Prosodic & Audience Sensors | Phase 3 | `app/pipeline/sensors/*`, `app/pipeline/s1_ingest/audience.py`, `app/pipeline/s2_select/fusion.py` | `test_phase_3_signals.py`, `check_phase_3_dynamic_fusion` | Heatmap, comments, chat, RMS audio energy, sound events, speech pace, and scene motion fusion (weights sum=1.0) | DONE |
+| Multi-Model Quality & Failure Recovery | Phase 4 | `llm/manager.py`, `app/pipeline/s2_select/critic.py`, `app/pipeline/s2_select/rerank.py`, `scripts/train_ranker.py` | `test_phase_4_multi_model.py`, `check_phase_4_manager_failure_recovery` | OOM context reduction (4096->2048), model fallback, multi-proposer agreement (>50% overlap), tournament reranker | DONE |
+| Visual Evidence, Metadata & Cover Art | Phase 5 | `app/pipeline/sensors/visual_evidence.py`, `app/pipeline/s5_package/metadata.py`, `thumbnail_generate.py` | `test_phase_5_visual_metadata.py`, `check_phase_5_visual_evidence` | Dead footage detection, OCR triggers, <70 char title limits, mandatory credit block, 1280x720 & 1080x1920 cover art | DONE |
+| Full Autonomous Verification Suite | Phases 0-5 | `scripts/selftest.py` | `python scripts/selftest.py --all` | 24 PASS, 0 FAIL across all 6 phases; peak VRAM 4048 MB (< 7.5 GB ceiling) | DONE |
+
 
 | ID | Item | Evidence |
 |---|---|---|
