@@ -78,7 +78,15 @@ def render_final(
     sfx_mix = clip_dir / "sfx_mix.wav"
     audio_mix = clip_dir / "audio_mix.wav"
 
-    if sfx_mix.is_file():
+    if not clean_audio.is_file() and framed_file.is_file():
+        # Extract audio track from framed_file if audio_clean.wav is missing
+        extract_cmd = ["-i", framed_file.name, "-vn", "-c:a", "pcm_s16le", "-ar", "48000", clean_audio.name]
+        try:
+            run_ffmpeg(extract_cmd, cwd=clip_dir, check=True)
+        except Exception as exc:
+            logger.debug("Failed extracting audio from %s: %s", framed_file, exc)
+
+    if sfx_mix.is_file() and clean_audio.is_file():
         # Mix clean speech with SFX (-12 dB)
         mix_cmd = [
             "-i", clean_audio.name,
@@ -92,8 +100,13 @@ def render_final(
         run_ffmpeg(mix_cmd, cwd=clip_dir, check=True)
     elif clean_audio.is_file():
         audio_mix = clean_audio
+    elif sfx_mix.is_file():
+        audio_mix = sfx_mix
     else:
-        raise FileNotFoundError(f"audio_clean.wav not found in {clip_dir}")
+        # Fall back to extracting framed_file audio directly
+        audio_mix = clean_audio
+        extract_cmd = ["-i", framed_file.name, "-vn", "-c:a", "pcm_s16le", "-ar", "48000", clean_audio.name]
+        run_ffmpeg(extract_cmd, cwd=clip_dir, check=True)
 
     # Copy fonts to fonts/ subdir for ass filter
     fonts_dir = clip_dir / "fonts"

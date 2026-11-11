@@ -147,8 +147,19 @@ def run_completeness_committee(
     Returns:
         (passed: bool, final_start_sid: int, final_end_sid: int, committee_details: dict)
     """
-    start_sid = int(getattr(candidate, "start_sid", candidate.get("start_sid", 0)))
-    end_sid = int(getattr(candidate, "end_sid", candidate.get("end_sid", len(sentences) - 1)))
+    if hasattr(candidate, "start_sid"):
+        start_sid = int(candidate.start_sid)
+    elif isinstance(candidate, dict):
+        start_sid = int(candidate.get("start_sid", 0))
+    else:
+        start_sid = int(getattr(candidate, "start_sid", 0))
+
+    if hasattr(candidate, "end_sid"):
+        end_sid = int(candidate.end_sid)
+    elif isinstance(candidate, dict):
+        end_sid = int(candidate.get("end_sid", len(sentences) - 1))
+    else:
+        end_sid = int(getattr(candidate, "end_sid", len(sentences) - 1))
     sid_map = {s.id: s for s in sentences}
 
     repair_count = 0

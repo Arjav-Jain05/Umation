@@ -90,9 +90,9 @@ class BadModelOutput(AppError):
 
 
 class FfmpegFailed(AppError):
-    def __init__(self, message: str, stderr_tail: str | None = None) -> None:
-        hint = f"FFmpeg stderr tail:\n{stderr_tail}" if stderr_tail else None
-        super().__init__("FFMPEG_FAILED", message, hint)
+    def __init__(self, message: str, stderr_tail: str | None = None, hint: str | None = None) -> None:
+        final_hint = hint or (f"FFmpeg stderr tail:\n{stderr_tail}" if stderr_tail else None)
+        super().__init__("FFMPEG_FAILED", message, final_hint)
 
 
 class NoCandidates(AppError):
