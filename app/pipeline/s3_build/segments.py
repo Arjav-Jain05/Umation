@@ -185,5 +185,25 @@ def run(ctx: JobContext) -> None:
         if not info.has_audio or info.width == 0:
             raise DownloadFailed(f"Segment {seg.id} downloaded but contains missing audio or video streams")
 
+    # Generate lightweight 480p 5fps proxy for fast visual sensors and VLM frame sampling
+    proxy_mp4 = ctx.work_dir / "proxy_480p.mp4"
+    if not proxy_mp4.is_file() and segments:
+        first_seg = ctx.work_dir / segments[0].path
+        if first_seg.is_file():
+            try:
+                from app.utils.ffmpeg import has_encoder, run_ffmpeg
+                v_enc = ["-c:v", "h264_nvenc", "-preset", "p5", "-cq", "26"] if has_encoder("h264_nvenc") else ["-c:v", "libx264", "-preset", "veryfast", "-crf", "28"]
+                cmd = [
+                    "-i", str(first_seg),
+                    "-vf", "scale=-2:480,fps=5",
+                    "-an",
+                    *v_enc,
+                    str(proxy_mp4),
+                ]
+                run_ffmpeg(cmd, check=False)
+                logger.info("[%s] Generated 480p 5fps proxy for visual sensors: %s", ctx.job_id, proxy_mp4.name)
+            except Exception as e:
+                logger.debug("[%s] Failed creating proxy: %s", ctx.job_id, e)
+
     ctx.write_artifact("segments.json", SegmentsArtifact(segments=segments))
     ctx.progress("segments", 1.0, f"All {len(segments)} video segments downloaded and verified")

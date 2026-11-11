@@ -7,9 +7,9 @@ import logging
 from app.core import paths
 from app.core.db import get_conn
 from app.core.models import update_clip
-from app.core.schemas import Plan, SegmentsArtifact, Transcript
+from app.core.schemas import Plan, SegmentsArtifact, Transcript, WordClip, WordsClipArtifact
 from app.pipeline.context import JobContext
-from app.pipeline.s3_build import audio_clean, captions, cutter, final_render, layout, segments
+from app.pipeline.s3_build import captions, final_render, layout, segments
 from app.pipeline.s3_build.face_track import sample_faces
 from app.utils.qa import check_clip_file
 
@@ -30,7 +30,6 @@ def run(ctx: JobContext) -> None:
     all_segments = seg_artifact.segments
 
     transcript = ctx.read_artifact("transcript.json", Transcript)
-    audio_path = ctx.work_dir / "audio.wav"
 
     total_clips = len(plan.clips)
     logger.info("[%s] Building %d clips...", ctx.job_id, total_clips)
@@ -68,43 +67,48 @@ def run(ctx: JobContext) -> None:
                 else:
                     raise FileNotFoundError(f"Segment video file {seg_obj.path} not found in work directory")
 
-            # 2. Cutter: compute keep intervals and cut video
-            keep_intervals = cutter.compute_keep_intervals(
-                clip_start=clip.start,
-                clip_end=clip.end,
-                words=transcript.words,
-                fillers=transcript.fillers,
-                audio_path=audio_path,
-            )
+            rel_start = max(0.0, clip.start - seg_obj.s)
+            dur = float(clip.duration or (clip.end - clip.start))
 
-            cut_video, cuts_art, words_art = cutter.cut_clip(
-                seg_path=seg_file,
-                seg_start=seg_obj.s,
-                intervals=keep_intervals,
-                out_dir=clip_dir,
-                words=transcript.words,
-                fillers=transcript.fillers,
-            )
-            ctx.write_artifact(f"clips/{clip.id}/cuts.json", cuts_art)
+            # 2. Extract words strictly inside [clip.start, clip.end]
+            clip_words = [w for w in transcript.words if w.s >= clip.start - 0.1 and w.e <= clip.end + 0.1]
+            words_clip = [
+                WordClip(
+                    w=w.w,
+                    s_clip=max(0.0, round(w.s - clip.start, 3)),
+                    e_clip=max(0.05, round(w.e - clip.start, 3)),
+                    idx=w.i,
+                )
+                for w in clip_words
+            ]
+            words_art = WordsClipArtifact(clip_id=clip.id, count=len(words_clip), words=words_clip)
             ctx.write_artifact(f"clips/{clip.id}/words.json", words_art)
 
-            # 3. Layout: sample faces and classify layout
-            face_samples = sample_faces(cut_video, every_s=2.0)
+            # 3. Layout: sample faces (prefer fast 480p proxy if available)
+            proxy_file = ctx.work_dir / "proxy_480p.mp4"
+            face_source = proxy_file if proxy_file.is_file() else seg_file
+            face_samples = sample_faces(face_source, every_s=2.0)
             layout_override = getattr(ctx.options, "layout", None)
             layout_decision = layout.detect_layout(face_samples, override=layout_override, clip_id=clip.id)
             ctx.write_artifact(f"clips/{clip.id}/layout.json", layout_decision)
 
-            # Render 9:16 framed video
-            layout.build_framed_clip(cut_video, layout_decision, clip_dir)
+            # 4. Captions & Badges / Cards
+            is_non_final_part = bool(clip.part_index and clip.part_total and clip.part_index < clip.part_total)
+            part_badge = f"PART {clip.part_index}" if (clip.part_index and clip.part_index > 1) else None
+            end_card = f"Part {clip.part_index + 1} is on the channel ▶" if is_non_final_part else None
+            hook_text = clip.hook_text if getattr(ctx.options, "hook_card", True) else None
 
-            # 4. Captions: chunk words and write ASS / SRT
-            caption_chunks = captions.chunk_words(words_art.words)
+            caption_chunks = captions.chunk_words(words_clip)
             captions.write_ass(
                 caption_chunks,
                 layout=layout_decision.layout,
                 out_path=clip_dir / "captions.ass",
                 mask_profanity_flag=getattr(ctx.options, "mask_profanity", True),
                 preset=getattr(ctx.options, "caption_preset", "modern_box"),
+                hook_card_text=hook_text,
+                part_badge_text=part_badge,
+                end_card_text=end_card,
+                end_card_start_s=dur if is_non_final_part else None,
             )
             captions.write_srt(
                 caption_chunks,
@@ -112,19 +116,28 @@ def run(ctx: JobContext) -> None:
                 mask_profanity_flag=getattr(ctx.options, "mask_profanity", True),
             )
 
-            # 5. Audio Clean-up
-            audio_clean.clean_audio(
-                cut_video_or_audio=cut_video,
+            # 5. Fast Single-Pass Render directly to clip.mp4 (-ss before -i, bokeh, ASS, NVENC)
+            final_mp4, qa_report = final_render.render_clip_fast_single_pass(
+                seg_path=seg_file,
+                rel_start=rel_start,
+                dur=dur,
+                clip_dir=clip_dir,
                 layout=layout_decision.layout,
-                out_wav=clip_dir / "audio_clean.wav",
+                cam_rect=layout_decision.cam_rect,
+                has_captions=True,
+                is_non_final_part=is_non_final_part,
+                fps=30.0,
             )
 
-            # 6. Final Render
-            final_mp4, qa_report = final_render.render_final(
-                clip_dir=clip_dir,
-                fps=30.0,
-                has_captions=True,
-            )
+            # Keep framed.mp4 link/copy for backward compatibility
+            framed_mp4 = clip_dir / "framed.mp4"
+            if not framed_mp4.is_file():
+                try:
+                    import os
+                    os.link(final_mp4, framed_mp4)
+                except Exception:
+                    import shutil
+                    shutil.copy2(final_mp4, framed_mp4)
 
             # Update database status
             with get_conn(ctx.db_path) as conn:
@@ -135,7 +148,7 @@ def run(ctx: JobContext) -> None:
                     status="built" if qa_report.passed else "qa_warning",
                 )
 
-            logger.info("[%s] Successfully built clip %s (QA passed: %s)", ctx.job_id, clip.id, qa_report.passed)
+            logger.info("[%s] Successfully built clip %s in single pass (QA passed: %s)", ctx.job_id, clip.id, qa_report.passed)
 
         except Exception as e:
             logger.error("[%s] Failed building clip %s: %s", ctx.job_id, clip.id, e, exc_info=True)

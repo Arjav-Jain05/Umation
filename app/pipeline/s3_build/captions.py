@@ -211,8 +211,13 @@ def write_ass(
     mask_profanity_flag: bool = True,
     emphasis_indices: list[int] | None = None,
     preset: str = "modern_box",
+    hook_card_text: str | None = None,
+    part_badge_text: str | None = None,
+    end_card_text: str | None = None,
+    end_card_start_s: float | None = None,
+    end_card_duration_s: float = 1.8,
 ) -> Path:
-    """Generate ASS subtitle file with responsive styling and 7 selectable aesthetic presets."""
+    """Generate ASS subtitle file with responsive styling, presets, badges, hook and end cards."""
     p = Path(out_path)
     p.parent.mkdir(parents=True, exist_ok=True)
 
@@ -238,6 +243,9 @@ ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Cap,{p_cfg['font']},{p_cfg['fontsize']},{p_cfg['primary']},{p_cfg['secondary']},{p_cfg['outline_color']},{p_cfg['back_color']},-1,0,0,0,100,100,1,0,{p_cfg['border_style']},{p_cfg['outline']},{p_cfg['shadow']},5,60,60,0,1
+Style: EndCard,Anton,72,&H0000FFFF,&H00000000,&H00000000,&HB0000000,-1,0,0,0,100,100,2,0,3,12,0,5,60,60,0,1
+Style: PartBadge,Anton,52,&H00FFFFFF,&H00000000,&H00000000,&H90000000,-1,0,0,0,100,100,1,0,3,8,0,8,60,60,180,1
+Style: HookCard,Anton,68,&H00FFFFFF,&H00000000,&H00000000,&HA0000000,-1,0,0,0,100,100,1,0,3,10,0,8,60,60,280,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -289,6 +297,22 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 f"Dialogue: 0,{t_start_ass},{t_end_ass},Cap,,0,0,0,,{effect_tag}{text_body}"
             )
         global_word_idx += n_words
+
+    # Overlay Cards & Badges in ASS
+    if part_badge_text:
+        dialogue_lines.append(
+            f"Dialogue: 1,0:00:00.00,0:00:02.00,PartBadge,,0,0,0,,{{\\pos(540,240)\\an8}}{part_badge_text}"
+        )
+    if hook_card_text:
+        dialogue_lines.append(
+            f"Dialogue: 1,0:00:00.00,0:00:02.50,HookCard,,0,0,0,,{{\\pos(540,320)\\an8}}{hook_card_text}"
+        )
+    if end_card_text and end_card_start_s is not None:
+        ec_st = _fmt_ass_time(end_card_start_s)
+        ec_en = _fmt_ass_time(end_card_start_s + end_card_duration_s)
+        dialogue_lines.append(
+            f"Dialogue: 2,{ec_st},{ec_en},EndCard,,0,0,0,,{{\\pos(540,960)\\an5}}{end_card_text}"
+        )
 
     full_ass = header + "\n".join(dialogue_lines) + "\n"
     p.write_text(full_ass, encoding="utf-8")

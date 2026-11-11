@@ -47,8 +47,13 @@ def build_sfx_mix(
             generate_sfx()
 
         if not sfx_file.is_file():
-            logger.warning("SFX asset %s not found; skipping", sfx_file)
-            continue
+            # Fall back to standard sounds if specific sound is missing (e.g. arrow -> whoosh)
+            fallback = sfx_dir / "whoosh.wav" if (sfx_dir / "whoosh.wav").is_file() else (sfx_dir / "pop.wav")
+            if fallback.is_file():
+                sfx_file = fallback
+            else:
+                logger.warning("SFX asset %s not found; skipping", sfx_file)
+                continue
 
         try:
             samples, _sr = _read_wav_floats(sfx_file)

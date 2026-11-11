@@ -11,7 +11,7 @@ from pathlib import Path
 from app.core import paths
 from app.core.errors import FfmpegFailed
 from app.core.schemas import QAReport
-from app.utils.ffmpeg import has_encoder, run_ffmpeg
+from app.utils.ffmpeg import has_encoder, probe, run_ffmpeg
 from app.utils.qa import check_clip_file
 
 logger = logging.getLogger("app.pipeline.s3_build.final_render")
@@ -206,5 +206,182 @@ def render_final(
     qa_report = check_clip_file(out_clip, cut_points=cut_points)
     if not qa_report.passed:
         logger.warning("Rendered clip %s failed QA checks: %s", out_clip.name, qa_report.failures)
+
+    return out_clip, qa_report
+
+
+def render_clip_fast_single_pass(
+    seg_path: Path,
+    rel_start: float,
+    dur: float,
+    clip_dir: Path,
+    layout: str = "gameplay",
+    cam_rect: list[float] | None = None,
+    has_captions: bool = True,
+    is_non_final_part: bool = False,
+    sfx_wav: Path | None = None,
+    fps: float = 30.0,
+    cut_points: list[float] | None = None,
+) -> tuple[Path, QAReport]:
+    """Render 1080x1920 short in ONE unified FFmpeg pass (-ss before -i, bokeh, ASS, NVENC)."""
+    clip_dir = Path(clip_dir)
+    clip_dir.mkdir(parents=True, exist_ok=True)
+    out_clip = clip_dir / "clip.mp4"
+    if out_clip.exists():
+        out_clip.unlink()
+
+    fonts_dir = clip_dir / "fonts"
+    _copy_fonts(fonts_dir)
+
+    # 1. Video filter graph
+    v_filters: list[str] = []
+    if layout == "facecam" and cam_rect and len(cam_rect) == 4:
+        info = probe(seg_path)
+        sw, sh = info.width, info.height
+        rx, ry, rw, rh = cam_rect
+        cx_px = int(rx * sw)
+        cy_px = int(ry * sh)
+        cw_px = max(100, int(rw * sw))
+        ch_px = max(50, int(rh * sh))
+        v_filters.append(
+            f"[0:v]split=3[bg_in][gp_in][cam_in];"
+            f"[bg_in]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=8:2,scale=1080:1920:flags=fast_bilinear,eq=brightness=-0.12:saturation=1.1[bg];"
+            f"[gp_in]scale=1080:608[gp];"
+            f"[cam_in]crop=w={cw_px}:h={ch_px}:x={cx_px}:y={cy_px},scale=1080:560:flags=fast_bilinear[cam];"
+            f"[bg][gp]overlay=0:300[bg_gp];"
+            f"[bg_gp][cam]overlay=0:930[base]"
+        )
+    elif layout == "talking_head":
+        v_filters.append(
+            "[0:v]crop=ih*9/16:ih:(iw-ih*9/16)/2:0,scale=1080:1920:flags=fast_bilinear[base]"
+        )
+    else:  # gameplay default
+        v_filters.append(
+            "[0:v]split=2[bg_in][fg_in];"
+            "[bg_in]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=8:2,scale=1080:1920:flags=fast_bilinear,eq=brightness=-0.12:saturation=1.1[bg];"
+            "[fg_in]scale=1080:608:force_original_aspect_ratio=decrease[fg];"
+            "[bg][fg]overlay=(W-w)/2:(H-h)/2[base]"
+        )
+
+    last_v = "base"
+    if is_non_final_part:
+        v_filters.append(f"[{last_v}]tpad=stop_duration=1.8:stop_mode=clone[padded]")
+        last_v = "padded"
+
+    ass_file = clip_dir / "captions.ass"
+    if has_captions and ass_file.is_file():
+        v_filters.append(f"[{last_v}]ass=captions.ass:fontsdir=fonts[v_out]")
+    else:
+        v_filters.append(f"[{last_v}]null[v_out]")
+
+    filter_complex_str = ";".join(v_filters)
+
+    # 2. Audio filters
+    a_filters: list[str] = []
+    has_sfx = bool(sfx_wav and sfx_wav.is_file())
+    if has_sfx:
+        a_filters.append("[1:a]volume=-12dB[sfx];[0:a][sfx]amix=inputs=2:normalize=0[a_base]")
+        last_a = "a_base"
+    else:
+        last_a = "0:a"
+
+    if is_non_final_part:
+        a_filters.append(f"[{last_a}]apad=pad_dur=1.8,afade=t=out:st={dur:.3f}:d=1.8,loudnorm=I=-14:TP=-1.5:LRA=11[a_out]")
+    else:
+        fade_st = max(0.0, dur - 0.20)
+        a_filters.append(f"[{last_a}]afade=t=out:st={fade_st:.3f}:d=0.20,loudnorm=I=-14:TP=-1.5:LRA=11[a_out]")
+
+    full_filter_complex = filter_complex_str + ";" + ";".join(a_filters)
+
+    # 3. Formulate FFmpeg command with -ss before -i
+    fps_val = min(60.0, max(24.0, fps))
+    gop_size = int(2 * fps_val)
+    use_nvenc = has_encoder("h264_nvenc")
+
+    if use_nvenc:
+        v_enc_args = [
+            "-c:v", "h264_nvenc",
+            "-preset", "p5",
+            "-tune", "hq",
+            "-rc", "vbr",
+            "-cq", "21",
+            "-b:v", "0",
+            "-maxrate", "16M",
+            "-bufsize", "32M",
+        ]
+    else:
+        v_enc_args = [
+            "-c:v", "libx264",
+            "-preset", "veryfast",
+            "-crf", "20",
+            "-maxrate", "16M",
+            "-bufsize", "32M",
+        ]
+
+    cmd = [
+        "-ss", f"{rel_start:.3f}",
+        "-t", f"{dur:.3f}",
+        "-i", str(seg_path.resolve()),
+    ]
+    if has_sfx:
+        cmd.extend(["-i", str(sfx_wav.resolve())])
+
+    cmd.extend([
+        "-filter_complex", full_filter_complex,
+        "-map", "[v_out]",
+        "-map", "[a_out]",
+        *v_enc_args,
+        "-profile:v", "high",
+        "-pix_fmt", "yuv420p",
+        "-r", str(round(fps_val)),
+        "-g", str(gop_size),
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-ar", "48000",
+        "-movflags", "+faststart",
+        out_clip.name,
+    ])
+
+    try:
+        run_ffmpeg(cmd, cwd=clip_dir, check=True)
+    except FfmpegFailed as e:
+        if use_nvenc:
+            logger.warning("NVENC single-pass render failed (%s); retrying with CPU libx264...", e)
+            v_enc_cpu = [
+                "-c:v", "libx264",
+                "-preset", "veryfast",
+                "-crf", "20",
+                "-maxrate", "16M",
+                "-bufsize", "32M",
+            ]
+            cmd_fallback = [
+                "-ss", f"{rel_start:.3f}",
+                "-t", f"{dur:.3f}",
+                "-i", str(seg_path.resolve()),
+            ]
+            if has_sfx:
+                cmd_fallback.extend(["-i", str(sfx_wav.resolve())])
+            cmd_fallback.extend([
+                "-filter_complex", full_filter_complex,
+                "-map", "[v_out]",
+                "-map", "[a_out]",
+                *v_enc_cpu,
+                "-profile:v", "high",
+                "-pix_fmt", "yuv420p",
+                "-r", str(round(fps_val)),
+                "-g", str(gop_size),
+                "-c:a", "aac",
+                "-b:a", "192k",
+                "-ar", "48000",
+                "-movflags", "+faststart",
+                out_clip.name,
+            ])
+            run_ffmpeg(cmd_fallback, cwd=clip_dir, check=True)
+        else:
+            raise
+
+    qa_report = check_clip_file(out_clip, cut_points=cut_points)
+    if not qa_report.passed:
+        logger.warning("Single-pass rendered clip %s failed QA checks: %s", out_clip.name, qa_report.failures)
 
     return out_clip, qa_report

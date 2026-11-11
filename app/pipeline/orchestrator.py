@@ -93,7 +93,7 @@ def run_pipeline(ctx: JobContext) -> None:
                 ctx.job_id,
                 conn=conn,
                 status="review",
-                stage="plan",
+                stage="package",
                 progress=100.0,
                 message=final_msg,
             )

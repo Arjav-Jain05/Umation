@@ -113,6 +113,30 @@ function updateJobHeader(job) {
   if (job.message) {
     progressMsg.textContent = job.message;
   }
+
+  // Synchronize stage progress bars on load
+  if (job.status === "review" || job.status === "done") {
+    document.querySelectorAll(".stage-row").forEach((row) => {
+      const fill = row.querySelector(".progress-bar-fill");
+      if (fill) {
+        fill.style.width = "100%";
+        fill.classList.add("done");
+      }
+    });
+  } else if (job.status === "running" && job.stage) {
+    const stageOrder = [
+      "source_check", "audio_download", "transcribe", "nominate", "judge",
+      "plan", "segments", "build", "direct", "package"
+    ];
+    const curIdx = stageOrder.indexOf(job.stage);
+    stageOrder.forEach((st, idx) => {
+      if (curIdx >= 0 && idx < curIdx) {
+        updateStageProgress(st, 100, true);
+      } else if (st === job.stage) {
+        updateStageProgress(st, 75, false);
+      }
+    });
+  }
 }
 
 /**
@@ -516,6 +540,13 @@ async function init() {
       jobStatusBadge.textContent = "review";
       cancelBtn.style.display = "none";
       cleanupBtn.style.display = "inline-flex";
+      document.querySelectorAll(".stage-row").forEach((row) => {
+        const fill = row.querySelector(".progress-bar-fill");
+        if (fill) {
+          fill.style.width = "100%";
+          fill.classList.add("done");
+        }
+      });
       loadClips();
     },
   });

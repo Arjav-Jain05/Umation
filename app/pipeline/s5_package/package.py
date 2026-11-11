@@ -18,32 +18,34 @@ from app.pipeline.s3_build import captions
 from app.pipeline.s5_package import thumbnail_compose, thumbnail_concept, thumbnail_generate
 from app.pipeline.s5_package.metadata import generate_metadata
 from app.utils import text
-from app.utils.ffmpeg import extract_frame
+from app.utils.ffmpeg import run_ffmpeg
 from app.utils.qa import check_clip_file
 
 logger = logging.getLogger("app.pipeline.s5_package.package")
 
 
-def _sample_clip_frames(clip_mp4: Path, duration: float, out_dir: Path, count: int = 12) -> list[Path]:
-    """Extract sample frames evenly spaced across clip for anti-frame perceptual hash comparison."""
+def _sample_clip_frames(clip_mp4: Path, duration: float, out_dir: Path, count: int = 6) -> list[Path]:
+    """Extract sample frames evenly spaced across clip in ONE single fast FFmpeg invocation."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    frames: list[Path] = []
-    if duration <= 1.0:
-        timestamps = [0.5]
-    else:
-        step = (duration - 0.8) / max(1, count - 1)
-        timestamps = [0.4 + i * step for i in range(count)]
+    existing = sorted(out_dir.glob("sample_*.jpg"))
+    if len(existing) >= count:
+        return existing[:count]
 
-    for idx, t in enumerate(timestamps):
-        frame_file = out_dir / f"sample_{idx:02d}.jpg"
-        if not frame_file.is_file():
-            try:
-                extract_frame(clip_mp4, t=t, out_path=frame_file, max_side=640)
-            except Exception as e:
-                logger.debug("Failed extracting sample frame at t=%.2f: %s", t, e)
-        if frame_file.is_file():
-            frames.append(frame_file)
-    return frames
+    dur = max(1.0, duration)
+    fps_val = count / dur
+    cmd = [
+        "-i", str(clip_mp4),
+        "-vf", f"fps={fps_val:.4f},scale=320:-2",
+        "-frames:v", str(count),
+        "-q:v", "5",
+        str(out_dir / "sample_%02d.jpg"),
+    ]
+    try:
+        run_ffmpeg(cmd, check=False)
+    except Exception as e:
+        logger.debug("Fast sample frame extraction fallback: %s", e)
+
+    return sorted(out_dir.glob("sample_*.jpg"))[:count]
 
 
 def _build_metadata_txt(meta: dict) -> str:
@@ -71,10 +73,12 @@ def package_clip(ctx: JobContext, clip: Clip) -> Path:
     """Package a single clip into output/<slug>-<video_id>/<clip_id>_<tier>... with full checklist (07 s9)."""
     source_info = ctx.read_artifact("source_info.json", SourceInfo)
     clip_dir = paths.clip_dir(ctx.job_id, clip.id)
-    final_mp4 = clip_dir / "final.mp4"
-
+    # Prefer clip.mp4 (fully rendered with video, captions, SFX, and normalized audio)
+    final_mp4 = clip_dir / "clip.mp4"
     if not final_mp4.is_file():
-        # Fallback to framed.mp4 if final.mp4 not produced
+        final_mp4 = clip_dir / "final.mp4"
+    if not final_mp4.is_file():
+        # Fallback to framed.mp4 only if final render not produced
         framed_mp4 = clip_dir / "framed.mp4"
         if framed_mp4.is_file():
             final_mp4 = framed_mp4
@@ -95,8 +99,7 @@ def package_clip(ctx: JobContext, clip: Clip) -> Path:
 
     # 1. Final video copy
     pkg_mp4 = pkg_dir / "clip.mp4"
-    if not pkg_mp4.is_file() or pkg_mp4.stat().st_size != final_mp4.stat().st_size:
-        shutil.copy2(final_mp4, pkg_mp4)
+    shutil.copy2(final_mp4, pkg_mp4)
 
     # 2. Captions SRT copy or generation
     pkg_srt = pkg_dir / "captions.srt"

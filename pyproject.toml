@@ -13,6 +13,7 @@ requires-python = ">=3.11,<3.13"
 target-version = "py312"
 line-length = 100
 src = [".", "app", "tests"]
+exclude = ["scratch", "data", "output", ".venv", ".agents"]
 
 [tool.ruff.lint]
 select = [

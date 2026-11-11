@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import re
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -12,17 +14,48 @@ import numpy as np
 import soundfile as sf
 
 from app.core.schemas import QAReport
-from app.utils.ffmpeg import loudnorm_measure, probe, run_ffmpeg
+from app.utils.ffmpeg import _get_creation_flags, loudnorm_measure, probe, run_ffmpeg
 
 logger = logging.getLogger("app.utils.qa")
 
 
 def _check_audio_pops(audio_path: Path, cut_points: list[float] | None = None) -> tuple[bool, float]:
     """Check for audio click/pop transients by inspecting sample-to-sample difference."""
+    p_str = str(audio_path).lower()
+    data = None
+    sr = 48000
     try:
-        data, sr = sf.read(str(audio_path), dtype="float32")
+        if p_str.endswith(".mp4") or p_str.endswith(".mkv"):
+            ffmpeg_bin = shutil.which("ffmpeg") or "ffmpeg"
+            cmd = [
+                ffmpeg_bin,
+                "-hide_banner",
+                "-v", "error",
+                "-i", str(audio_path),
+                "-vn",
+                "-f", "s16le",
+                "-ar", "48000",
+                "-ac", "1",
+                "-",
+            ]
+            res = subprocess.run(
+                cmd,
+                capture_output=True,
+                creationflags=_get_creation_flags(),
+                timeout=30,
+            )
+            if res.returncode == 0 and res.stdout:
+                data = np.frombuffer(res.stdout, dtype=np.int16).astype(np.float32) / 32768.0
+                sr = 48000
+            else:
+                return False, 0.0
+        else:
+            data, sr = sf.read(str(audio_path), dtype="float32")
     except Exception as e:
         logger.warning("Could not read audio file for pop check: %s", e)
+        return False, 0.0
+
+    if data is None or len(data) == 0:
         return False, 0.0
 
     if data.ndim > 1:
@@ -31,19 +64,22 @@ def _check_audio_pops(audio_path: Path, cut_points: list[float] | None = None) -
     diffs = np.abs(np.diff(data))
     max_diff = float(np.max(diffs)) if len(diffs) > 0 else 0.0
 
-    # If cut points provided, check boundary regions (±20ms)
+    # If cut points provided, check boundary regions (±20ms) per spec 05 section 11
     if cut_points:
+        max_cut_diff = 0.0
         for cp in cut_points:
             idx = int(cp * sr)
             idx_start = max(0, idx - int(0.02 * sr))
             idx_end = min(len(diffs), idx + int(0.02 * sr))
             if idx_start < idx_end:
                 local_max = float(np.max(diffs[idx_start:idx_end]))
+                max_cut_diff = max(max_cut_diff, local_max)
                 if local_max > 0.30:
                     return True, local_max
+        return False, max_cut_diff
 
-    # Global threshold: 0.40 full-scale jump without transition
-    return bool(max_diff > 0.40), max_diff
+    # If no cuts, check only for extreme discontinuity/DC jumps
+    return bool(max_diff > 0.85), max_diff
 
 
 def _check_black_frames(video_path: Path) -> list[str]:

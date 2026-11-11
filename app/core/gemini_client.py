@@ -5,6 +5,7 @@ Replaces old Gemini client. Zero cloud AI calls, zero external API keys.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any, TypeVar
 
@@ -99,6 +100,17 @@ class LocalLLMClient:
             task=task,
             **kwargs,
         )
+
+    def call_with_image(self, prompt: str, image_path: Any) -> str:
+        """Call vision model with image and prompt, or fallback gracefully."""
+        try:
+            return self.manager.generate_text(
+                task="locate_target",
+                prompt=prompt,
+                image=str(image_path),
+            )
+        except Exception:
+            return json.dumps({"found": False, "shows_target": False, "confidence": 0.0})
 
     def generate_image(self, prompt: str, aspect: str = "16:9") -> Image.Image:
         """Generate thumbnail background using local procedural gradient canvas."""
@@ -199,6 +211,17 @@ class FakeGeminiClient:
             task=task,
             **kwargs,
         )
+
+    def call_with_image(self, prompt: str, image_path: Any) -> str:
+        """Call vision model with image and prompt, or fallback gracefully."""
+        try:
+            return self.manager.generate_text(
+                task="locate_target",
+                prompt=prompt,
+                image=str(image_path),
+            )
+        except Exception:
+            return json.dumps({"found": False, "shows_target": False, "confidence": 0.0})
 
     def generate_image(self, prompt: str, aspect: str = "16:9") -> Image.Image:
         w, h = (1080, 1920) if aspect == "9:16" else (1280, 720)

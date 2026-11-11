@@ -101,14 +101,15 @@ def detect_layout(
 
 
 def render_gameplay(cut_video: Path, out_framed: Path) -> Path:
-    """Render gameplay layout: blurred background fill with 1:1 sharp centered foreground at y=560."""
+    """Render gameplay layout: fast cinematic bokeh background with sharp centered foreground."""
     v_enc = [
-        "-c:v", "h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", "16", "-b:v", "0",
-    ] if has_encoder("h264_nvenc") else ["-c:v", "libx264", "-preset", "fast", "-crf", "16"]
+        "-c:v", "h264_nvenc", "-preset", "p5", "-tune", "hq", "-rc", "vbr", "-cq", "21", "-b:v", "0",
+    ] if has_encoder("h264_nvenc") else ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20"]
 
+    # Fast bokeh: downscale background to 270x480, light blur, then upscale back to 1080x1920
     filter_graph = (
         "[0:v]split=2[bg_in][fg_in];"
-        "[bg_in]scale=-2:1920,crop=1080:1920,boxblur=40:6,eq=brightness=-0.12:saturation=1.1[bg];"
+        "[bg_in]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=8:2,scale=1080:1920:flags=fast_bilinear,eq=brightness=-0.12:saturation=1.1[bg];"
         "[fg_in]scale=1080:-2[fg];"
         "[bg][fg]overlay=0:560[v]"
     )
@@ -138,14 +139,14 @@ def render_facecam(cut_video: Path, cam_rect: list[float], out_framed: Path) -> 
     ch_px = max(50, int(rh * h))
 
     v_enc = [
-        "-c:v", "h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", "16", "-b:v", "0",
-    ] if has_encoder("h264_nvenc") else ["-c:v", "libx264", "-preset", "fast", "-crf", "16"]
+        "-c:v", "h264_nvenc", "-preset", "p5", "-tune", "hq", "-rc", "vbr", "-cq", "21", "-b:v", "0",
+    ] if has_encoder("h264_nvenc") else ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20"]
 
     filter_graph = (
         f"[0:v]split=3[bg_in][gp_in][cam_in];"
-        f"[bg_in]scale=-2:1920,crop=1080:1920,boxblur=40:6,eq=brightness=-0.12:saturation=1.1[bg];"
+        f"[bg_in]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=8:2,scale=1080:1920:flags=fast_bilinear,eq=brightness=-0.12:saturation=1.1[bg];"
         f"[gp_in]scale=1080:608[gp];"
-        f"[cam_in]crop=w={cw_px}:h={ch_px}:x={cx_px}:y={cy_px},scale=1080:560:flags=lanczos[cam];"
+        f"[cam_in]crop=w={cw_px}:h={ch_px}:x={cx_px}:y={cy_px},scale=1080:560:flags=fast_bilinear[cam];"
         f"[bg][gp]overlay=0:300[bg_gp];"
         f"[bg_gp][cam]overlay=0:930[v]"
     )

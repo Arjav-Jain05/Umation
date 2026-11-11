@@ -50,11 +50,12 @@ def plan_clips(
 ) -> list[Clip]:
     """Execute planning pipeline: blend scores, assess risk, deduplicate, and split stories."""
     thresholds = scoring_cfg.get("thresholds", {"min_final": 35, "tier_s": 85, "tier_a": 70, "tier_b": 55, "tier_c": 20})
-    tier_s_min = float(thresholds.get("tier_s", 85.0))
+    floor = float(thresholds.get("min_final", 35.0))
+    has_tier_s = "tier_s" in thresholds
+    tier_s_min = float(thresholds["tier_s"]) if has_tier_s else 999.0
     tier_a_min = float(thresholds.get("tier_a", 70.0))
     tier_b_min = float(thresholds.get("tier_b", 55.0))
-    tier_c_min = float(thresholds.get("tier_c", 20.0))
-    floor = float(thresholds.get("min_final", 35.0))
+    tier_c_min = float(thresholds.get("tier_c", floor))
 
     tier_rank_order = {"S": 4, "A": 3, "B": 2, "C": 1}
     target_rank = tier_rank_order.get(min_tier.upper(), 1)
@@ -129,35 +130,6 @@ def plan_clips(
             context_fix=item.context_fix,
         )
         scored_candidates.append((final, c, text))
-
-    # If no candidate reached threshold but user requested Tier C (loose), retain top candidate
-    if not scored_candidates and judged_items and target_rank == 1:
-        best_item = max(judged_items, key=lambda it: it.llm_score)
-        sig = signals_map.get(best_item.cid)
-        if sig is not None:
-            final = max(20.0, blend(best_item, sig, scoring_cfg, domain=domain))
-            dur = best_item.e - best_item.s
-            risk_lvl, risk_flags = assess(dur, sig.speech_ratio, source_info, best_item.content_flags)
-            text = _get_clip_text(best_item.start_sid, best_item.end_sid, transcript.sentences)
-            c = Clip(
-                id=best_item.cid,
-                start=best_item.s,
-                end=best_item.e,
-                duration=round(dur, 3),
-                tier="C",
-                final_score=final,
-                llm_score=best_item.llm_score,
-                heat=sig.heat,
-                audio=sig.audio,
-                speech_ratio=sig.speech_ratio,
-                hook_text=best_item.hook_text,
-                topic=best_item.topic,
-                risk=risk_lvl,
-                risk_flags=risk_flags,
-                needs_context=best_item.needs_context,
-                context_fix=best_item.context_fix,
-            )
-            scored_candidates.append((final, c, text))
 
     # Sort descending by final score for deduplication
     scored_candidates.sort(key=lambda x: x[0], reverse=True)
