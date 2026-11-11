@@ -31,7 +31,7 @@ class Settings(BaseModel):
     llm_metadata_model: str = Field(default="gemma4:e4b")
 
     # Layer 0 Whisper
-    whisper_model: str = Field(default="large-v3")
+    whisper_model: str = Field(default="large-v3-turbo")
     whisper_device: Literal["cuda", "cpu"] = Field(default="cuda")
     whisper_compute: str = Field(default="float16")
     whisper_language: str = Field(default="auto")

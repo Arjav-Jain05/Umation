@@ -267,7 +267,11 @@ def run_all_downloads() -> bool:
     # L5: SigLIP
     download_hf_model("google/siglip-base-patch16-224", layer=5)
 
+    # L5: Vision Language Model (VLM for frame inspection & thumbnail criticism)
+    pull_ollama_model("qwen2.5vl:3b", layer=5)
+
     return core_ok
+
 
 
 def main() -> int:
@@ -296,6 +300,8 @@ def main() -> int:
             ok = pull_ollama_model("qwen3.5:9b", layer=2)
         elif args.only == 5:
             ok = download_hf_model("google/siglip-base-patch16-224", layer=5)
+            ok = pull_ollama_model("qwen2.5vl:3b", layer=5) and ok
+
         else:
             print(f"Layer {args.only} download not specifically configured.")
             ok = True

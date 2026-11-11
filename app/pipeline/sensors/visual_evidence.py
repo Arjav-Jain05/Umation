@@ -243,3 +243,54 @@ def check_candidate_visual_integrity(
         return True, final_start, final_end, f"check_error: {exc}"
     finally:
         cap.release()
+
+
+def query_vlm_frame(
+    frame: np.ndarray,
+    prompt: str,
+    model: str = "qwen2.5vl:3b",
+    timeout_s: float = 60.0,
+) -> str | None:
+    """Send a frame to the local Ollama VLM (qwen2.5vl:3b) and return its text response."""
+    import base64
+    import json
+    import urllib.request
+
+    from config.settings import get_settings
+
+    # Encode frame to JPEG in memory
+    success, encoded_img = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+    if not success:
+        return None
+    b64_str = base64.b64encode(encoded_img).decode("utf-8")
+
+    host = get_settings().ollama_host
+    if not host.startswith("http"):
+        host = f"http://{host}"
+
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "images": [b64_str],
+        "stream": False,
+        "options": {
+            "temperature": 0.2,
+            "num_predict": 128,
+        },
+        "keep_alive": 0,  # Strict VRAM release
+    }
+
+    try:
+        req = urllib.request.Request(
+            f"{host}/api/generate",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=timeout_s) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data.get("response", "").strip()
+    except Exception as exc:
+        logger.debug("VLM inference skipped/failed: %s", exc)
+        return None
+

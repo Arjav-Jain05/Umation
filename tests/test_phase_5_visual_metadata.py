@@ -196,3 +196,23 @@ def test_job_options_presets():
     assert opt_best.enable_rerank is True
     assert opt_best.second_look is True
     assert opt_best.enable_thumbnails is True
+
+
+def test_query_vlm_frame(monkeypatch):
+    """Verify VLM frame inspection formats base64 payload and parses Ollama response."""
+    import json
+    from unittest.mock import MagicMock
+
+    from app.pipeline.sensors.visual_evidence import query_vlm_frame
+
+    test_frame = np.zeros((100, 100, 3), dtype=np.uint8)
+
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = json.dumps({"response": "The frame shows a dramatic explosion"}).encode("utf-8")
+    mock_resp.__enter__.return_value = mock_resp
+
+    monkeypatch.setattr("urllib.request.urlopen", lambda req, timeout: mock_resp)
+
+    res = query_vlm_frame(test_frame, "Describe this frame")
+    assert res == "The frame shows a dramatic explosion"
+

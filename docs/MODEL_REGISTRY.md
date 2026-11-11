@@ -20,8 +20,10 @@ Adheres strictly to **Prompt v6 Section 1 & Section 3**:
 | **gemma4:e4b** | Completeness Committee Judge 2 (Gemma family) | Gemma Terms | 6.6 GB | Q4_K_M GGUF | CUDA (Ollama) | ~5,400 MB | [`google/gemma-2` / `gemma4:e4b`](https://ollama.com/library/gemma4) |
 | **MediaPipe BlazeFace Short Range** | Face & Subject Detection (9:16 reframing) | Apache-2.0 | 224 KB | float16 TFLite | CPU / MediaPipe | 0 MB (CPU) | Google MediaPipe Models Repository |
 | **RapidOCR ONNX (PP-OCRv4)** | 160px Thumbnail Preview Readability & On-Screen Text | Apache-2.0 | 14.9 MB | ONNX | CPU | 0 MB (CPU) | [`RapidAI/RapidOCR`](https://github.com/RapidAI/RapidOCR) |
+| **qwen2.5vl:3b** | Vision-Language Model (VLM): Action verification, first/last frame check, thumbnail critic | Apache-2.0 | 3.2 GB | Q4_K_M GGUF | CUDA (Ollama) | ~3,100 MB | [`Qwen/Qwen2.5-VL-3B-Instruct` / `qwen2.5vl:3b`](https://ollama.com/library/qwen2.5vl) |
 
 ---
+
 
 ## 2. Model Deep Dives & Verification Records
 
@@ -64,3 +66,13 @@ Adheres strictly to **Prompt v6 Section 1 & Section 3**:
   - Pure ONNX CPU execution (no PyTorch dependency).
   - Confirmed 99.1% character confidence at 160px width.
 - **License:** Apache-2.0.
+
+### 2.6 Qwen2.5-VL 3B (`qwen2.5vl:3b`)
+- **Role:** Vision-Language Model (VLM) for Layer 5 frame integrity inspection and Task D thumbnail critic.
+- **Why chosen:**
+  - Lightweight 3.2 GB footprint fits easily into RTX 4060 8 GB VRAM.
+  - Native dynamic resolution processing and strong visual understanding.
+  - Inspects start/mid/end candidate frames to verify visual action completeness, detects black/loading screens, and critiques thumbnail concepts for topic relevance and clutter.
+- **License:** Apache-2.0.
+- **Storage Path:** `D:\Open_Source_Weights\ollama`
+
