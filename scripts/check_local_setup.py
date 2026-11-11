@@ -233,6 +233,75 @@ def check_ytdlp() -> CheckResult:
         return CheckResult("yt-dlp", "FAIL", f"yt-dlp check failed: {exc}", "pip install -U yt-dlp")
 
 
+def check_whisper_models() -> CheckResult:
+    weights_dir = Path(os.environ.get("WEIGHTS_DIR", "D:\\Open_Source_Weights"))
+    whisper_root = weights_dir / "whisper"
+    if not whisper_root.exists():
+        return CheckResult("Whisper Models", "FAIL", f"Missing {whisper_root}", "Run download_weights.py --core")
+
+    found = []
+    for d in whisper_root.iterdir():
+        if d.is_dir() and d.name.startswith("models--"):
+            snaps = [s for s in (d / "snapshots").glob("*") if (s / "model.bin").is_file()]
+            if snaps:
+                sz_mb = (snaps[0] / "model.bin").stat().st_size / (1024**2)
+                found.append(f"{d.name.replace('models--', '')} ({sz_mb:.0f} MB)")
+    if not found:
+        return CheckResult("Whisper Models", "FAIL", "No complete Whisper models with model.bin found", "Download Whisper weights")
+    return CheckResult("Whisper Models", "PASS", f"Found: {', '.join(found)}")
+
+
+def check_cv_models() -> CheckResult:
+    weights_dir = Path(os.environ.get("WEIGHTS_DIR", "D:\\Open_Source_Weights"))
+    p1 = weights_dir / "models" / "blaze_face_short_range.tflite"
+    p2 = Path("assets/models/blaze_face_short_range.tflite")
+    if p1.is_file() or p2.is_file():
+        loc = p1 if p1.is_file() else p2
+        return CheckResult("MediaPipe BlazeFace", "PASS", f"Installed at {loc} ({loc.stat().st_size} bytes)")
+    return CheckResult("MediaPipe BlazeFace", "FAIL", "blaze_face_short_range.tflite missing", "Place blaze_face_short_range.tflite in D:\\Open_Source_Weights\\models")
+
+
+def check_hf_weights() -> CheckResult:
+    weights_dir = Path(os.environ.get("WEIGHTS_DIR", "D:\\Open_Source_Weights"))
+    hf_root = weights_dir / "huggingface"
+    expected = [
+        "BAAI--bge-small-en-v1.5",
+        "j-hartmann--emotion-english-distilroberta-base",
+        "MIT--ast-finetuned-audioset-10-10-0.4593",
+        "google--siglip-base-patch16-224",
+    ]
+    found = []
+    missing = []
+    for exp in expected:
+        cand = hf_root / f"models--{exp}"
+        if cand.is_dir():
+            found.append(exp)
+        else:
+            missing.append(exp)
+    if missing:
+        return CheckResult("HF Auxiliary Models", "WARN", f"Found {len(found)}/{len(expected)}. Missing: {', '.join(missing)}", "Run download_weights.py --all")
+    return CheckResult("HF Auxiliary Models", "PASS", f"All {len(expected)} models present in {hf_root}")
+
+
+def check_ollama_models() -> CheckResult:
+    host = os.environ.get("OLLAMA_HOST", "127.0.0.1:11434")
+    url = f"http://{host}/api/tags" if not host.startswith("http") else f"{host}/api/tags"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "shorts-engine/check"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            installed = [m.get("name") for m in data.get("models", [])]
+            has_qwen = any("qwen3.5:9b" in m for m in installed)
+            has_gemma = any("gemma4:e4b" in m for m in installed)
+            if has_qwen and has_gemma:
+                return CheckResult("Ollama LLMs", "PASS", f"Primary (qwen3.5:9b) & Secondary (gemma4:e4b) installed: {installed}")
+            elif has_qwen:
+                return CheckResult("Ollama LLMs", "PASS", f"Primary qwen3.5:9b installed (Secondary downloading/pending): {installed}")
+            return CheckResult("Ollama LLMs", "FAIL", f"Required models missing. Installed: {installed}", "ollama pull qwen3.5:9b")
+    except Exception as exc:
+        return CheckResult("Ollama LLMs", "FAIL", f"Cannot connect to Ollama: {exc}")
+
+
 def run_all_checks() -> list[CheckResult]:
     return [
         check_python(),
@@ -241,7 +310,11 @@ def run_all_checks() -> list[CheckResult]:
         check_env_vars(),
         check_ffmpeg_and_nvenc(),
         check_ollama_service(),
+        check_ollama_models(),
         check_whisper_cuda(),
+        check_whisper_models(),
+        check_cv_models(),
+        check_hf_weights(),
         check_ytdlp(),
     ]
 

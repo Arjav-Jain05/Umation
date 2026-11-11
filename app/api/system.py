@@ -57,6 +57,6 @@ def open_folder(req: OpenFolderRequest) -> dict[str, bool]:
     if not target_path.exists():
         raise HTTPException(status_code=404, detail="Path does not exist")
 
-    if sys.platform == "win32" and hasattr(os, "startfile"):
+    if sys.platform == "win32" and hasattr(os, "startfile") and not os.environ.get("PYTEST_CURRENT_TEST"):
         os.startfile(str(target_path))  # type: ignore[attr-defined]
     return {"ok": True}

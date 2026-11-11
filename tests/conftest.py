@@ -19,6 +19,12 @@ def disable_background_worker(monkeypatch: pytest.MonkeyPatch):
     """Prevent background worker thread from running during automated unit/API tests."""
     monkeypatch.setattr("app.core.worker.Worker.start", lambda self: None)
     monkeypatch.setattr("app.core.worker.Worker.stop", lambda self: None)
+    import app.core.worker
+    import app.main
+    monkeypatch.setattr(app.core.worker.worker, "start", lambda: None)
+    monkeypatch.setattr(app.core.worker.worker, "stop", lambda: None)
+    monkeypatch.setattr(app.main.worker, "start", lambda: None)
+    monkeypatch.setattr(app.main.worker, "stop", lambda: None)
 
 
 @pytest.fixture

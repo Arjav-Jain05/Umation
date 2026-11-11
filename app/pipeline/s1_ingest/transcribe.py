@@ -180,11 +180,18 @@ def run(ctx: JobContext) -> None:
         whisper_root = ctx.settings.weights_dir / "whisper"
         if whisper_root.exists():
             for cand in [
+                whisper_root / f"models--mobiuslabsgmbh--faster-whisper-{ctx.settings.whisper_model}",
                 whisper_root / f"models--Systran--faster-whisper-{ctx.settings.whisper_model}",
+                whisper_root / "models--mobiuslabsgmbh--faster-whisper-large-v3-turbo",
                 whisper_root / "models--Systran--faster-whisper-large-v3",
+                whisper_root / "models--Systran--faster-whisper-tiny",
             ]:
                 if cand.exists():
-                    snapshots = list((cand / "snapshots").glob("*"))
+                    snapshots = [
+                        s for s in (cand / "snapshots").glob("*")
+                        if (s / "model.bin").is_file() and (s / "model.bin").stat().st_size > 70_000_000
+                        and ("large" not in cand.name or (s / "model.bin").stat().st_size > 1_500_000_000)
+                    ]
                     if snapshots:
                         model_target = str(snapshots[0])
                         break

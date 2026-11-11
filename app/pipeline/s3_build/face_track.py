@@ -53,6 +53,12 @@ class FaceDetectorWrapper:
 
     def _init_detector(self) -> None:
         model_path = paths.models_dir() / "blaze_face_short_range.tflite"
+        if not model_path.is_file():
+            from config.settings import get_settings
+            alt_path = Path(get_settings().weights_dir) / "models" / "blaze_face_short_range.tflite"
+            if alt_path.is_file():
+                model_path = alt_path
+
         if model_path.is_file():
             try:
                 import mediapipe as mp
