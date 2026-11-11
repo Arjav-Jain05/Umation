@@ -18,7 +18,9 @@ from app.core.schemas import (
     Transcript,
 )
 from app.pipeline.context import JobContext
+from app.pipeline.s2_select.completeness_committee import run_completeness_committee
 from app.pipeline.s2_select.refine import refine_candidate
+from app.pipeline.sensors.visual_evidence import check_candidate_visual_integrity
 from app.utils.timecode import fmt_hms
 
 logger = logging.getLogger("app.pipeline.s2_select.judge")
@@ -80,6 +82,54 @@ def run(ctx: JobContext) -> None:
         ctx.progress("judge", 1.0, "No candidates survived boundary refinement")
         return
 
+    # Layer 4 Completeness Committee + Layer 6 Boundary Repair + Layer 5 Visual Check
+    committee_passed_candidates: list[tuple[Candidate, bool, dict[str, Any]]] = []
+    proxy_path = ctx.work_dir / "proxy.mp4"
+    video_path = proxy_path if proxy_path.is_file() else (ctx.work_dir / "source.mp4")
+
+    for cand, is_story in refined_candidates:
+        c_passed, f_start_sid, f_end_sid, comm_data = run_completeness_committee(
+            cand,
+            transcript.sentences,
+            llm_client=ctx.llm,
+            max_clip_s=ctx.options.max_clip_s,
+            allow_cliffhanger=is_story,
+            judge_model_1=ctx.settings.llm_proposer_model_1,
+            judge_model_2=ctx.settings.llm_proposer_model_2,
+        )
+        if not c_passed:
+            logger.info("Candidate %s rejected by Completeness Committee: %s", cand.cid, comm_data.get("verdict"))
+            continue
+
+        cand.start_sid = f_start_sid
+        cand.end_sid = f_end_sid
+        cand.s = transcript.sentences[f_start_sid].s
+        cand.e = transcript.sentences[f_end_sid].e
+
+        # Layer 5 Visual Check
+        v_passed, _v_start, _v_end, v_reason = check_candidate_visual_integrity(
+            video_path if video_path.is_file() else None,
+            cand.s,
+            cand.e,
+        )
+        if not v_passed:
+            logger.info("Candidate %s rejected by Visual Check: %s", cand.cid, v_reason)
+            continue
+
+        comm_data["visual_reason"] = v_reason
+        committee_passed_candidates.append((cand, is_story, comm_data))
+
+    if not committee_passed_candidates:
+        logger.warning(
+            "[%s] Zero candidates survived strict completeness committee; using refined candidates with review flag",
+            ctx.job_id,
+        )
+        candidates_to_judge = [(c, s) for c, s in refined_candidates]
+        committee_meta = {c.cid: {} for c, _ in refined_candidates}
+    else:
+        candidates_to_judge = [(c, s) for c, s, _ in committee_passed_candidates]
+        committee_meta = {c.cid: meta for c, _, meta in committee_passed_candidates}
+
     # Load scoring rubric weights
     import yaml
 
@@ -105,10 +155,10 @@ def run(ctx: JobContext) -> None:
 
     # Group into batches
     batches: list[list[tuple[Candidate, bool]]] = [
-        refined_candidates[i : i + batch_size] for i in range(0, len(refined_candidates), batch_size)
+        candidates_to_judge[i : i + batch_size] for i in range(0, len(candidates_to_judge), batch_size)
     ]
 
-    all_judged_by_cid: dict[str, list[RawJudgeItem]] = {cand.cid: [] for cand, _ in refined_candidates}
+    all_judged_by_cid: dict[str, list[RawJudgeItem]] = {cand.cid: [] for cand, _ in candidates_to_judge}
 
     total_ops = len(batches) * num_runs
     op_counter = 0
@@ -168,7 +218,7 @@ def run(ctx: JobContext) -> None:
 
     # Average scores and merge runs
     final_judged_items: list[JudgedItem] = []
-    cand_map = {c.cid: (c, story) for c, story in refined_candidates}
+    cand_map = {c.cid: (c, story) for c, story in candidates_to_judge}
 
     for cid, runs_list in all_judged_by_cid.items():
         if not runs_list:
@@ -206,6 +256,11 @@ def run(ctx: JobContext) -> None:
         topic = first_run.topic or "GTA 6 Moment"
         hook_text = first_run.hook_text or c_obj.reason
 
+        item_reasons = dict(first_run.reasons)
+        if cid in committee_meta:
+            item_reasons["committee"] = committee_meta[cid]
+            item_reasons["ending_type"] = committee_meta[cid].get("judge_1", {}).get("ending_type", "resolution")
+
         final_judged_items.append(
             JudgedItem(
                 cid=cid,
@@ -221,7 +276,7 @@ def run(ctx: JobContext) -> None:
                 topic=topic,
                 entities=first_run.entities,
                 content_flags=first_run.content_flags,
-                reasons=first_run.reasons,
+                reasons=item_reasons,
                 llm_score=round(llm_score, 1),
                 runs=len(runs_list),
             )

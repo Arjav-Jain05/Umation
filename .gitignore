@@ -38,3 +38,4 @@ assets/models/*.tflite
 .claude/
 .DS_Store
 Thumbs.db
+scratch/

@@ -47,19 +47,19 @@ def clean_concept_text(text: str) -> str:
     return " ".join(words).upper()
 
 
-def fallback_concept(clip: Clip | dict[str, Any], domain: str = "gta6") -> ThumbConcept:
-    """Deterministic fallback concept per 07 s6 when Gemini is unavailable."""
+def fallback_concept(clip: Clip | dict[str, Any], domain: str = "general") -> ThumbConcept:
+    """Deterministic fallback concept per Section 7 when LLM is unavailable."""
     topic = clip.topic if isinstance(clip, Clip) else clip.get("topic", "")
     hook = clip.hook_text if isinstance(clip, Clip) else clip.get("hook_text", "")
-    topic_str = topic or (domain.upper() if domain else "GTA 6")
+    topic_str = topic or (hook if hook else ("GTA 6" if domain == "gta6" else "Viral Moment"))
 
     words = re.findall(r"[A-Za-z0-9]+", hook or topic_str)
     overlay_text = " ".join(words[:2]).upper() if words else "MUST SEE"
 
     return ThumbConcept(
-        scene=f"bold abstract neon gradient with a large symbolic icon for {topic_str}",
+        scene=f"bold dramatic artwork with a large symbolic focal element for {topic_str}",
         focal_subject=topic_str,
-        style="digital neon vector illustration with high contrast",
+        style="high contrast modern digital illustration with vibrant lighting",
         palette=["#FFD400", "#FF007F", "#0F1115"],
         text=clean_concept_text(overlay_text),
         text_position="top",
@@ -74,19 +74,19 @@ def fallback_concept(clip: Clip | dict[str, Any], domain: str = "gta6") -> Thumb
 
 
 def make_concept(ctx: JobContext, clip: Clip) -> ThumbConcept:
-    """Generate thumbnail concept via Gemini prompt or deterministic fallback."""
+    """Generate thumbnail concept via LLM prompt or deterministic fallback."""
     prompt_path = paths.prompts_dir() / "thumbnail_concept.md"
     template = prompt_path.read_text(encoding="utf-8") if prompt_path.is_file() else ""
 
-    domain_desc = "GTA 6 news, gameplay, rumors, and leaks"
-    domain = getattr(ctx.options, "domain", "gta6") if hasattr(ctx, "options") else "gta6"
+    domain = getattr(ctx.options, "domain", "general") if hasattr(ctx, "options") else "general"
+    domain_desc = "GTA 6 news, gameplay, rumors, and leaks" if domain == "gta6" else "Short-form video moments and viral entertainment"
 
     entities = getattr(clip, "entities", None)
-    entities_str = ", ".join(entities) if entities else "GTA 6"
-    mood_str = "energetic and exciting"
+    entities_str = ", ".join(entities) if entities else (clip.topic or "Highlight")
+    mood_str = "energetic, intense and exciting"
 
     prompt = (
-        template.replace("{{topic}}", clip.topic or "GTA 6")
+        template.replace("{{topic}}", clip.topic or (clip.hook_text or "Viral Moment"))
         .replace("{{entities}}", entities_str)
         .replace("{{hook_text}}", clip.hook_text or "")
         .replace("{{mood}}", mood_str)

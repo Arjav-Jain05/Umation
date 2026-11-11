@@ -96,7 +96,7 @@ def validate_and_fix_metadata(
     clean_titles: list[TitleOption] = []
     seen_texts: set[str] = set()
 
-    part_suffix = f" (Part {clip.part_index})" if (clip.part_index and clip.part_total and clip.part_total > 1) else ""
+    part_suffix = f" (Part {clip.part_index}/{clip.part_total})" if (clip.part_index and clip.part_total and clip.part_total > 1) else ""
 
     for opt in raw.titles:
         c_text = _clean_title(opt.text, max_chars=70)
@@ -178,13 +178,19 @@ def validate_and_fix_metadata(
     credit_yt = build_credit_block(source_info, clip, short=False)
     credit_ig = build_credit_block(source_info, clip, short=True)
 
+    part_callout = (
+        f"Part {clip.part_index + 1} is on the channel ▶\n\n"
+        if (clip.part_index and clip.part_total and clip.part_index < clip.part_total)
+        else ""
+    )
+
     hashtags_str = " ".join(clean_hashtags)
-    desc_yt = f"{hook_line}\n{context}\n\n{credit_yt}\n\n{hashtags_str}"
+    desc_yt = f"{hook_line}\n{context}\n\n{part_callout}{credit_yt}\n\n{hashtags_str}"
 
     ig_caption = (raw.instagram_caption or f"{hook_line} {hashtags_str}").strip()
     if len(ig_caption) > 150:
         ig_caption = ig_caption[:150].rsplit(" ", 1)[0]
-    desc_ig = f"{ig_caption}\n\n{credit_ig}\n\n{hashtags_str}"
+    desc_ig = f"{ig_caption}\n\n{part_callout}{credit_ig}\n\n{hashtags_str}"
 
     pinned = (raw.pinned_comment or "What was your favorite moment in this clip?").strip()
 

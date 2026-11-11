@@ -158,10 +158,10 @@ def plan_clips(
         if not dup:
             kept.append((clip_cand, text))
 
-    # Multi-part story splitting for long continuous moments
+    # Multi-part story splitting for long continuous moments (> 90s only per Task C)
     final_clips: list[Clip] = []
     for clip_obj, _ in kept:
-        if (clip_obj.duration > 75.0 or clip_obj.duration > 65.0) and clip_obj.final_score >= 70.0 and gemini_client:
+        if clip_obj.duration > 90.0 and clip_obj.final_score >= 70.0 and gemini_client:
             parts = split_story(clip_obj, transcript.sentences, gemini_client)
             final_clips.extend(parts)
         else:

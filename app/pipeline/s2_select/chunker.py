@@ -38,11 +38,12 @@ def make_chunks(
     sentences: list[Sentence],
     minutes: int = 4,
     overlap_s: int = 45,
+    use_story_blocks: bool = True,
 ) -> list[Chunk]:
     """Slice sentences into overlapping chunks cut on sentence boundaries.
 
-    Uses 4-minute chunks with 45s overlap to ensure prompt context easily fits
-    local LLM context windows (4096 tokens) without any token truncation.
+    Uses story-block topic shift boundaries when available, falling back to
+    sliding window chunking cut on sentence boundaries.
     """
     if not sentences:
         return []
@@ -51,6 +52,36 @@ def make_chunks(
     chunk_dur_s = float(minutes * 60)
     overlap_dur_s = float(overlap_s)
 
+    # 1. Try story-block segmentation if requested and video is long enough
+    if use_story_blocks and total_duration > chunk_dur_s * 0.75:
+        try:
+            from app.pipeline.sensors.topic_segmenter import get_story_blocks
+
+            blocks = get_story_blocks(
+                sentences,
+                min_dur=max(45.0, chunk_dur_s * 0.4),
+                max_dur=chunk_dur_s,
+                overlap_s=overlap_dur_s,
+            )
+            if len(blocks) >= 2 or (len(blocks) == 1 and total_duration <= chunk_dur_s):
+                chunks: list[Chunk] = []
+                for idx, (first_sid, last_sid) in enumerate(blocks):
+                    c_start = sentences[first_sid].s
+                    c_end = sentences[last_sid].e
+                    cid = f"ch{idx + 1:02d}"
+                    chunks.append(
+                        Chunk(
+                            id=cid,
+                            s=round(c_start, 3),
+                            e=round(c_end, 3),
+                            sentence_ids=[first_sid, last_sid],
+                        )
+                    )
+                return chunks
+        except Exception:
+            pass
+
+    # 2. Sliding window chunking on sentence boundaries
     chunks: list[Chunk] = []
     chunk_idx = 1
     start_time = 0.0
@@ -65,7 +96,6 @@ def make_chunks(
                 matched_sids.append(s.id)
 
         if not matched_sids:
-            # Advance if no sentences matched
             start_time += chunk_dur_s - overlap_dur_s
             continue
 
@@ -87,7 +117,6 @@ def make_chunks(
         chunk_idx += 1
         start_time += chunk_dur_s - overlap_dur_s
 
-        # Stop if this chunk covered the rest of the video
         if c_end >= total_duration:
             break
 

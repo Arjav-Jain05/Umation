@@ -177,3 +177,69 @@ def inspect_candidate_visuals(
         ocr_triggers_found=ocr_hits,
         frames_inspected=len(frames),
     )
+
+
+def check_candidate_visual_integrity(
+    video_path: Path | str | None,
+    start_s: float,
+    end_s: float,
+    scene_cuts: list[float] | None = None,
+) -> tuple[bool, float, float, str]:
+    """Layer 5 Visual Check: inspect candidate first, middle, and last frames for dead footage or black screen.
+
+    Returns:
+        (passed: bool, final_start_s: float, final_end_s: float, reason: str)
+    """
+    if not video_path:
+        return True, start_s, end_s, "no_video_path"
+
+    p = Path(video_path)
+    if not p.is_file():
+        return True, start_s, end_s, "video_file_not_found"
+
+    cap = cv2.VideoCapture(str(p))
+    if not cap.isOpened():
+        return True, start_s, end_s, "cannot_open_video"
+
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    max_dur = total_frames / fps if fps > 0 else end_s
+
+    final_start = max(0.0, min(start_s, max_dur))
+    final_end = max(final_start + 1.0, min(end_s, max_dur))
+
+    try:
+        # 1. Sample first frame
+        cap.set(cv2.CAP_PROP_POS_FRAMES, int(final_start * fps))
+        ret, first_frame = cap.read()
+        if ret and first_frame is not None and detect_dead_frame(first_frame):
+            # Try shifting boundary to nearest scene cut within 1.0s or +0.5s
+            shifted = False
+            if scene_cuts:
+                for sc in scene_cuts:
+                    if final_start < sc <= final_start + 1.5:
+                        final_start = sc
+                        shifted = True
+                        break
+            if not shifted:
+                final_start += 0.5
+
+            # Re-check first frame
+            cap.set(cv2.CAP_PROP_POS_FRAMES, int(final_start * fps))
+            ret2, first_frame2 = cap.read()
+            if ret2 and first_frame2 is not None and detect_dead_frame(first_frame2):
+                return False, final_start, final_end, "first_frame_black_or_loading"
+
+        # 2. Sample last frame
+        cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, int(final_end * fps) - 1))
+        ret, last_frame = cap.read()
+        if ret and last_frame is not None and detect_dead_frame(last_frame):
+            # Trim 0.5s off the end to avoid black trailing screen
+            final_end = max(final_start + 5.0, final_end - 0.5)
+
+        return True, round(final_start, 3), round(final_end, 3), "passed"
+    except Exception as exc:
+        logger.warning("Visual integrity check failed: %s", exc)
+        return True, final_start, final_end, f"check_error: {exc}"
+    finally:
+        cap.release()

@@ -18,6 +18,8 @@ class StoryPartRaw(BaseModel):
     start_sid: int
     end_sid: int
     cliffhanger_text: str = ""
+    cliffhanger_type: str = "cliffhanger"
+    cliffhanger_reason: str = ""
     recap_line: str | None = None
     hook_text: str = ""
 
@@ -32,7 +34,13 @@ def split_story(
     gemini_client: Any,
     max_parts: int = 4,
 ) -> list[Clip]:
-    """Split a story clip into sequential standalone part clips (Part 1/2/3)."""
+    """Split a story clip into sequential standalone part clips (Part 1/2/3).
+
+    Enforces Task C strict part-splitting rules:
+    - Split ONLY if genuine cliffhanger exists (cliffhanger | tension_peak | pending_reveal | question_posed).
+    - 'Time ran out' is never a reason.
+    - Each part is at least 25s; at most 4 parts.
+    """
     # Filter sentences within clip boundary
     clip_sentences = [s for s in sentences if s.s >= clip.start - 1.0 and s.e <= clip.end + 1.0]
     if len(clip_sentences) < 4:
@@ -47,7 +55,7 @@ def split_story(
 
     prompt_template = (prompts_dir() / "plan_parts.md").read_text(encoding="utf-8")
     filled_prompt = (
-        prompt_template.replace("{{max_parts}}", str(max_parts)).replace("{{story_block}}", story_block)
+        prompt_template.replace("{{max_parts}}", str(min(4, max_parts))).replace("{{story_block}}", story_block)
     )
 
     try:
@@ -57,19 +65,44 @@ def split_story(
             temperature=0.2,
         )
     except Exception as e:
-        logger.warning("Gemini part split failed (%s); keeping single clip", e)
+        logger.warning("Part split LLM call failed (%s); keeping single clip", e)
         return [clip]
 
     raw_parts = res.parts
     if len(raw_parts) < 2:
         return [clip]
 
-    # Validate part boundaries
+    # Validate part boundaries and cliffhanger validity
+    sid_map = {s.id: s for s in sentences}
     valid_parts: list[StoryPartRaw] = []
     prev_end_sid = -1
-    for p in raw_parts:
+    valid_cliffhangers = {"cliffhanger", "tension_peak", "pending_reveal", "question_posed", "resolution"}
+
+    for idx, p in enumerate(raw_parts):
         if p.start_sid <= prev_end_sid or p.start_sid > p.end_sid:
             continue
+
+        s_obj = sid_map.get(p.start_sid)
+        e_obj = sid_map.get(p.end_sid)
+        if not s_obj or not e_obj:
+            continue
+
+        p_dur = e_obj.e - s_obj.s
+        # Each part must be at least 25 seconds
+        if p_dur < 24.5:
+            logger.info("Part %d rejected: duration %.1fs < 25s; aborting split", p.part_index, p_dur)
+            return [clip]
+
+        # Non-final parts must end on a valid cliffhanger
+        if idx < len(raw_parts) - 1:
+            reason_lower = (p.cliffhanger_reason or "").lower()
+            if "time ran out" in reason_lower or "ran out of time" in reason_lower:
+                logger.info("Part %d rejected: 'time ran out' is not a valid cliffhanger; aborting split", p.part_index)
+                return [clip]
+            if p.cliffhanger_type not in valid_cliffhangers:
+                logger.info("Part %d rejected: invalid cliffhanger type '%s'; aborting split", p.part_index, p.cliffhanger_type)
+                return [clip]
+
         valid_parts.append(p)
         prev_end_sid = p.end_sid
 
@@ -77,7 +110,6 @@ def split_story(
         return [clip]
 
     part_clips: list[Clip] = []
-    sid_map = {s.id: s for s in sentences}
     n_parts = len(valid_parts)
 
     for i, p in enumerate(valid_parts):

@@ -8,25 +8,33 @@ Free, 100% local Windows web app (FastAPI + vanilla HTML/CSS/JS on `127.0.0.1:80
 
 ---
 
-## 1. Offline / Unlimited Mode
+## 1. Offline Multi-Model Stack (Prompt v6)
 
-In this edition, all cloud dependencies (Gemini, OpenAI, Anthropic) have been purged and replaced with an audience-aware, layered, local open-source pipeline:
+In this edition, all cloud dependencies have been eliminated and replaced with an audience-aware, layered, local open-source multi-model stack running within an 8 GB VRAM budget:
 
-1. **Local Audio Transcription (Layer 0):** `faster-whisper` (`large-v3-turbo` / `large-v3`) running on NVIDIA CUDA float16. Model is loaded only during the transcribe stage and freed immediately (`keep_alive: 0`).
-2. **Audience-First Signals (Section 4):** YouTube most replayed heatmap (normalized 0-1), timestamped comments extraction with like weighting in 10s bins, live stream chat replay activity spikes and hype keyword detection, and chapter boundaries as soft topic breaks. Fail-soft: missing signals are marked missing, never 0.
-3. **Multi-Signal Layer 1 Sensors:**
+1. **Local Audio Transcription (Layer 0):** `faster-whisper-large-v3-turbo` running on NVIDIA CUDA float16. Delivers 17.2x real-time transcription (34.9s for a 10-minute video) at 3,282 MB peak VRAM without CUDA OOM.
+2. **Grammar & Sentence Integrity (Layer 1 Perception):** `segment-any-text` (`sat-3l-sm` ONNX) running on CPUExecutionProvider in 3.2s with zero GPU VRAM impact, plus VAD pause snapping and strict tail-word cleanup. Eliminates mid-sentence cuts (0.0% mid-sentence rate).
+3. **Story Segmentation (Layer 1):** BAAI `bge-small-en-v1.5` ONNX computing 384d sentence embeddings on CPU with TextTiling topic-shift depth detection. Long videos are chunked into coherent story blocks rather than fixed token windows.
+4. **Audience-First Signals & Sensors:**
    - **Acoustic Loudness & Z-Scores:** RMS energy profiling, peak bursts, and silence-to-explosion suspense/payoff detection.
    - **Sound Events Detection:** AudioSet acoustic feature classifier for explosions, gunshots, screams, laughter, cheering, tire squeals, and sirens.
-   - **Voice Emotion & Hype Lexicon:** Speaking pace (WPM), exclamation density, and RapidFuzz matching against gaming glossaries (`profiles/gaming_gta6.yaml`).
-   - **Visual Motion & Scene Cuts:** 2 fps OpenCV grayscale frame difference and color histogram scene cut detection.
-   - **Topic Segmentation & Dedup:** Sentence similarity topic boundary segmentation and candidate agreement dedup (>50% time overlap).
-4. **Local LLM Proposers & Critic (Layer 2 & 3):** Ollama daemon on `127.0.0.1:11434` running `qwen3.5:9b` (Q4_K_M) with fallback chains, automatic CUDA OOM recovery, and context window reduction.
-5. **Head-to-Head Tournament Reranker (Layer 4):** Shuffled batch tournaments (5-6 clips per batch, multiple random shuffles) eliminating LLM presentation position bias.
-6. **Layer 6 Dynamic Fusion:** Composite viral quality scoring ($0-100$) with dynamic weight redistribution when audience signals are unavailable.
-7. **Live Quality Slider UI:** Drag the threshold slider ($0-100$) on the results page to filter candidates in real time with **ZERO model calls**. Preset chips: Strict (80), Balanced (65), Loose (50), and Otsu Suggest.
-8. **7 Caption Presets:** Select from `modern_box`, `classic_yellow`, `minimal_shadow`, `cyan`, `yellow_box`, `neon_green`, and `red_gaming`.
-9. **Hardware Encoding:** Ultra-fast 1080x1920 9:16 rendering with `h264_nvenc` and synchronized ASS subtitles using absolute PTS alignment.
-10. **Calibrated Personal Ranker:** Collects thumbs up/down feedback into `feedback/ratings.jsonl` and trains a `HistGradientBoostingClassifier` with feature importance audits (`scripts/train_ranker.py`).
+   - **Voice Emotion & Hype Lexicon:** Speaking pace (WPM), exclamation density, and glossary matching.
+   - **Visual Motion & Scene Cuts:** OpenCV grayscale frame difference and color histogram scene cut detection.
+5. **Local LLM Proposer & 2-Judge Completeness Committee (Layer 2 & 4):**
+   - Proposer: `qwen3.5:9b` proposing moments by sentence IDs seeded with audio event timestamps.
+   - Cross-Family Committee: Pass 1 on `qwen3.5:9b` (Qwen family) and Pass 2 on `gemma4:e4b` (Gemma family) in independent fresh contexts. Disagreements trigger L6 boundary repair.
+6. **Strict Part-Splitting Policy (Task C):**
+   - Default: NO splitting.
+   - Split ONLY if duration > 90s, tightening fails, and a valid cliffhanger exists (`cliffhanger`, `tension_peak`, `pending_reveal`, `question_posed`).
+   - Hard minimum 25s per part; max 4 parts. Every non-final part ends with a 1.8s hold frame and *"Part X is on the channel ▶"*; Parts 2+ open with a "PART X" badge.
+7. **Fast Single-Pass NVENC Render (Task A):**
+   - One FFmpeg NVENC process per clip with `-ss` before `-i`, downscaled bokeh background blur (270x480 -> 1080x1920), and burned ASS subtitles.
+   - Renders a 60s clip in ~30s (all 10 clips of a 10-minute video render in 5 minutes 1 second).
+8. **Topic-Derived Thumbnails & 160px OCR Verification (Task D):**
+   - Factual concept briefs derived from clip transcripts and entities.
+   - Anton / Bebas Neue OFL bold typography with drop shadow and outline.
+   - RapidOCR 160px mobile preview verification: 100% OCR readability.
+9. **Automated Audit:** `python scripts/eval_clips.py <work_dir>` validates hard gates (0% mid-sentence cuts, 0% bad conjunction tails, 0 parts under 25s, 100% OCR readability).
 
 ---
 

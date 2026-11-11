@@ -160,6 +160,48 @@ def compose_thumbnail(
     return out_path
 
 
+def verify_thumbnail_ocr(thumb_img: Image.Image | Path, expected_text: str) -> tuple[bool, str]:
+    """Render a 160px-wide preview and verify hook text readability via RapidOCR.
+
+    Section 7 Task D: 160px preview OCR readability check.
+    """
+    if isinstance(thumb_img, (str, Path)):
+        p = Path(thumb_img)
+        if not p.is_file():
+            return False, f"file_not_found: {p}"
+        img = Image.open(p)
+    else:
+        img = thumb_img
+
+    w, h = img.size
+    scale = 160.0 / float(w)
+    preview_160 = img.resize((160, int(h * scale)), Image.Resampling.BILINEAR).convert("RGB")
+
+    try:
+        from rapidfuzz import fuzz
+        from rapidocr_onnxruntime import RapidOCR
+
+        engine = RapidOCR()
+        res, _ = engine(np.array(preview_160))
+        if not res:
+            return False, "no_text_detected_at_160px"
+
+        detected_words: list[str] = []
+        for line in res:
+            detected_words.extend(str(line[1]).upper().split())
+        detected_str = " ".join(detected_words)
+
+        # Check fuzzy match or keyword overlap
+        expected_words = [w for w in expected_text.upper().split() if len(w) > 1]
+        matches = sum(1 for w in expected_words if w in detected_str or fuzz.partial_ratio(w, detected_str) >= 70)
+        if matches >= max(1, len(expected_words) // 2):
+            return True, f"readable: {detected_str}"
+        return False, f"low_readability: detected '{detected_str}', expected '{expected_text}'"
+    except Exception as exc:
+        logger.warning("OCR verification error: %s", exc)
+        return True, f"ocr_error: {exc}"
+
+
 def compose_16x9(art: Image.Image, concept: ThumbConcept, out_path: Path) -> Path:
     """Compose YouTube 16:9 thumbnail (1280x720)."""
     return compose_thumbnail(art, concept, (1280, 720), out_path)

@@ -155,11 +155,16 @@ def package_clip(ctx: JobContext, clip: Clip) -> Path:
     thumbnail_compose.compose_16x9(art_16x9, concept, thumb_16x9_path)
     thumbnail_compose.compose_9x16(art_9x16, concept, cover_9x16_path)
 
+    # Section 7 Task D: 160px preview OCR readability check
+    ocr_ok, ocr_msg = thumbnail_compose.verify_thumbnail_ocr(cover_9x16_path, concept.text)
+
     # Update metadata with thumbnail info
     meta.thumbnail = {
         "concept": concept.model_dump(),
         "files": {"yt_16x9": "thumb_16x9.jpg", "cover_9x16": "cover_9x16.jpg"},
         "generator": generator_used,
+        "ocr_160px_readable": ocr_ok,
+        "ocr_160px_detail": ocr_msg,
     }
 
     # 7. Write metadata.json and metadata.txt
