@@ -68,3 +68,15 @@ chains:
       num_ctx: 4096
       temperature: 0.4
       think: false
+
+  locate_target:
+    - model: "qwen2.5vl:3b"
+      num_ctx: 2048
+      temperature: 0.1
+      think: false
+
+  vlm_critic:
+    - model: "qwen2.5vl:3b"
+      num_ctx: 2048
+      temperature: 0.1
+      think: false

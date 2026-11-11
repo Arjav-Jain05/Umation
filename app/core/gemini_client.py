@@ -102,14 +102,47 @@ class LocalLLMClient:
         )
 
     def call_with_image(self, prompt: str, image_path: Any) -> str:
-        """Call vision model with image and prompt, or fallback gracefully."""
+        """Call vision model (qwen2.5vl:3b) with image and prompt, or fallback gracefully."""
+        import base64
+        import urllib.request
+        from pathlib import Path
+
+        p = Path(image_path)
+        if not p.is_file():
+            return json.dumps({"found": False, "shows_target": False, "confidence": 0.0})
+
         try:
-            return self.manager.generate_text(
-                task="locate_target",
-                prompt=prompt,
-                image=str(image_path),
+            with open(p, "rb") as f:
+                img_bytes = f.read()
+            b64_str = base64.b64encode(img_bytes).decode("utf-8")
+
+            host = self.settings.ollama_host
+            if not host.startswith("http"):
+                host = f"http://{host}"
+
+            payload = {
+                "model": "qwen2.5vl:3b",
+                "prompt": prompt,
+                "images": [b64_str],
+                "stream": False,
+                "options": {
+                    "temperature": 0.1,
+                    "num_predict": 256,
+                },
+                "keep_alive": 0,
+            }
+
+            req = urllib.request.Request(
+                f"{host}/api/generate",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
             )
-        except Exception:
+            with urllib.request.urlopen(req, timeout=60.0) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data.get("response", "").strip()
+        except Exception as exc:
+            logger.debug("Local vision model call failed (%s); returning fallback JSON", exc)
             return json.dumps({"found": False, "shows_target": False, "confidence": 0.0})
 
     def generate_image(self, prompt: str, aspect: str = "16:9") -> Image.Image:
@@ -213,15 +246,17 @@ class FakeGeminiClient:
         )
 
     def call_with_image(self, prompt: str, image_path: Any) -> str:
-        """Call vision model with image and prompt, or fallback gracefully."""
-        try:
-            return self.manager.generate_text(
-                task="locate_target",
-                prompt=prompt,
-                image=str(image_path),
-            )
-        except Exception:
-            return json.dumps({"found": False, "shows_target": False, "confidence": 0.0})
+        """Mock vision response for tests."""
+        self.calls.append({"prompt": prompt, "image": str(image_path), "task": "locate_target"})
+        if isinstance(self.canned_response, str):
+            return self.canned_response
+        return json.dumps({
+            "found": True,
+            "shows_target": True,
+            "confidence": 0.9,
+            "box_2d": [200, 200, 400, 400],
+            "label": "mock_target",
+        })
 
     def generate_image(self, prompt: str, aspect: str = "16:9") -> Image.Image:
         w, h = (1080, 1920) if aspect == "9:16" else (1280, 720)
