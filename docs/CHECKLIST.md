@@ -82,23 +82,23 @@ Extracted from `docs/SPEC.md`.
   - [x] Git commit and tag `phase-3-pass`
 
 ## Phase 4: Multi-Model Quality
-- [ ] Second proposer (different model family) with candidate deduplication & agreement scoring (>50% overlap)
-- [ ] Layer 3 Critic & Arc stitcher (thinking mode enabled, narrow questions, Part 1/2/3 splits)
-- [ ] Layer 4 Head-to-head rerank (shuffled batches of 5-6, 3 shuffles, 2-3 judges, 0-100 rerank score)
-- [ ] Hardened LocalModelManager (`llm/`):
-  - [ ] Provider interface with Ollama backend
-  - [ ] Chain of fallback models from `config/models.yaml`
-  - [ ] CUDA OOM recovery: unload, context reduction (8192 -> 4096), next model fallback
-  - [ ] Retries with backoff and jitter
-  - [ ] JSON repair mechanism
-  - [ ] Unload between heavy stages (`keep_alive: 0`)
-- [ ] Model bake-off harness (`scripts/bakeoff.py`)
-- [ ] Feedback collection (`feedback/ratings.jsonl`) & ranker training (`scripts/train_ranker.py`)
-- [ ] Gate 4 Verification:
-  - [ ] Model manager failure tests pass (OOM, timeout, bad JSON, model missing)
-  - [ ] Rerank position-bias test passes
-  - [ ] Ablation study (Qwen-only vs two proposers vs full funnel) on test sample
-  - [ ] Git commit and tag `phase-4-pass`
+- [x] Second proposer (different model family) with candidate deduplication & agreement scoring (>50% overlap)
+- [x] Layer 3 Critic & Arc stitcher (thinking mode enabled, narrow questions, Part 1/2/3 splits)
+- [x] Layer 4 Head-to-head rerank (shuffled batches of 5-6, 3 shuffles, 2-3 judges, 0-100 rerank score)
+- [x] Hardened LocalModelManager (`llm/`):
+  - [x] Provider interface with Ollama backend
+  - [x] Chain of fallback models from `config/models.yaml`
+  - [x] CUDA OOM recovery: unload, context reduction (8192 -> 4096), next model fallback
+  - [x] Retries with backoff and jitter
+  - [x] JSON repair mechanism
+  - [x] Unload between heavy stages (`keep_alive: 0`)
+- [x] Model bake-off harness (`scripts/bakeoff.py`)
+- [x] Feedback collection (`feedback/ratings.jsonl`) & ranker training (`scripts/train_ranker.py`)
+- [x] Gate 4 Verification:
+  - [x] Model manager failure tests pass (OOM, timeout, bad JSON, model missing)
+  - [x] Rerank position-bias test passes
+  - [x] Ablation study (Qwen-only vs two proposers vs full funnel) on test sample
+  - [x] Git commit and tag `phase-4-pass`
 
 ## Phase 5: Visual Layer, Metadata, Thumbnails, Polish
 - [ ] Layer 5 Visual Evidence:

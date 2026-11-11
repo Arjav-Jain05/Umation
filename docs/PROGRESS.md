@@ -290,3 +290,35 @@ VERIFICATION SUMMARY: 4 PASS, 0 FAIL
    - `timeline_generator.py`: Discrete timeline event synthesizer and multi-sensor hot-zone map generator for LLM prompt context.
 3. `app/pipeline/s2_select/fusion.py`: Layer 6 composite viral scoring implementing `quality = w_aud*audience + w_ev*audio_events + w_emo*emotion + w_hype*text_hype + w_llm*llm_consensus + w_crit*critic + w_rank*rerank + w_vis*visual + w_agree*agreement + w_pers*personal_ranker` with automatic dynamic weight redistribution when optional signals (like audience heatmap or comments) are unavailable.
 4. Profiles: Configured `profiles/default.yaml` and `profiles/gaming_gta6.yaml` with domain glossaries, hype lexicons, and sound event priorities.
+
+### Phase 4: Multi-Model Quality (PASS)
+- Status: `PASS`
+- Completed: 2026-11-11T14:58:45
+- Automated Test Suite: `python scripts/selftest.py --phase 4` -> 4 PASS, 0 FAIL
+- Linting & Code Hygiene: `ruff check app config llm scripts tests` -> All checks passed
+- Unit Tests: `pytest tests/test_phase_4_multi_model.py` -> 7 PASS in 2.12s
+
+#### Verification Evidence:
+```
+======================================================================
+RUNNING GATE CHECKS FOR PHASE 4
+======================================================================
+[PASS]     Model Manager Failure Handling   (took 9.01s, VRAM 0MB)
+           Detail: OOM context reduction, retry backoff, and model fallback verified....
+[PASS]     Multi-Proposer Agreement (>50% Overlap) (took 1.33s, VRAM 0MB)
+           Detail: Multi-proposer merging, dedup, and agreement count (>50% overlap) verified....
+[PASS]     Head-to-Head Rerank Position-Bias Check (took 1.20s, VRAM 0MB)
+           Detail: Tournament rerank proved invariant to candidate input presentation order....
+[PASS]     Calibrated Ranker Training       (took 1.56s, VRAM 0MB)
+           Detail: Ranker trained with 94.6% accuracy (HistGradientBoostingClassifier) in 1.56s...
+----------------------------------------------------------------------
+VERIFICATION SUMMARY: 4 PASS, 0 FAIL
+```
+
+#### Key Architecture Delivered in Phase 4:
+1. Hardened `LocalModelManager` (`llm/manager.py`): Robust failure handling supporting CUDA out-of-memory context reduction (4096 -> 2048), exponential retry backoff with jitter, schema repair retries with error feedback, and sequential fallback across model chains defined in `config/models.yaml`.
+2. Multi-Model Agreement (`app/core/schemas.py` & `nominate.py`): Supports second proposer nomination with time overlap deduplication (>50% overlap). Overlapping nominations increment `agreement_count = 2`, while novel candidates from either model are preserved with `agreement_count = 1`.
+3. Layer 3 Critic & Arc Stitcher (`app/pipeline/s2_select/critic.py`): Evaluates shortlisted candidates on hook strength (first 3s), standalone clarity, payoff climax, and platform compliance. Arc stitcher groups multi-part narratives into Part 1/2/3 splits.
+4. Layer 4 Head-to-Head Tournament Reranker (`app/pipeline/s2_select/rerank.py`): Shuffled batch tournaments (5-6 candidates per batch, multiple random shuffles) that eliminate LLM presentation position bias and output calibrated 0-100 rerank scores.
+5. Calibrated Personal Ranker (`app/core/feedback.py`, `scripts/train_ranker.py`): Collects user thumbs up/down into `feedback/ratings.jsonl` and trains a `HistGradientBoostingClassifier` with feature importance audits across all pipeline layers.
+6. Model Bake-Off Harness (`scripts/bakeoff.py`): Benchmark tool measuring JSON validity rate, latency, token throughput, and Spearman rank correlation across candidate models.

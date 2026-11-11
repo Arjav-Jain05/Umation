@@ -1,0 +1,10 @@
+{"clip_id": "clip_1", "job_id": "job_1", "rating": 1, "scores": {"audience": 80.0, "audio_events": 75.0, "rerank": 85.0}, "metrics": {}, "logged_at": "2026-11-11T09:24:41.910286+00:00"}
+{"clip_id": "clip_2", "job_id": "job_1", "rating": 0, "scores": {"audience": 30.0, "audio_events": 40.0, "rerank": 45.0}, "metrics": {}, "logged_at": "2026-11-11T09:24:41.910788+00:00"}
+{"clip_id": "clip_1", "job_id": "job_1", "rating": 1, "scores": {"audience": 80.0, "audio_events": 75.0, "rerank": 85.0}, "metrics": {}, "logged_at": "2026-11-11T09:25:43.547153+00:00"}
+{"clip_id": "clip_2", "job_id": "job_1", "rating": 0, "scores": {"audience": 30.0, "audio_events": 40.0, "rerank": 45.0}, "metrics": {}, "logged_at": "2026-11-11T09:25:43.547153+00:00"}
+{"clip_id": "clip_1", "job_id": "job_1", "rating": 1, "scores": {"audience": 80.0, "audio_events": 75.0, "rerank": 85.0}, "metrics": {}, "logged_at": "2026-11-11T09:26:08.090544+00:00"}
+{"clip_id": "clip_2", "job_id": "job_1", "rating": 0, "scores": {"audience": 30.0, "audio_events": 40.0, "rerank": 45.0}, "metrics": {}, "logged_at": "2026-11-11T09:26:08.091045+00:00"}
+{"clip_id": "clip_1", "job_id": "job_1", "rating": 1, "scores": {"audience": 80.0, "audio_events": 75.0, "rerank": 85.0}, "metrics": {}, "logged_at": "2026-11-11T09:26:31.163789+00:00"}
+{"clip_id": "clip_2", "job_id": "job_1", "rating": 0, "scores": {"audience": 30.0, "audio_events": 40.0, "rerank": 45.0}, "metrics": {}, "logged_at": "2026-11-11T09:26:31.164288+00:00"}
+{"clip_id": "clip_1", "job_id": "job_1", "rating": 1, "scores": {"audience": 80.0, "audio_events": 75.0, "rerank": 85.0}, "metrics": {}, "logged_at": "2026-11-11T09:28:06.975794+00:00"}
+{"clip_id": "clip_2", "job_id": "job_1", "rating": 0, "scores": {"audience": 30.0, "audio_events": 40.0, "rerank": 45.0}, "metrics": {}, "logged_at": "2026-11-11T09:28:06.976276+00:00"}
