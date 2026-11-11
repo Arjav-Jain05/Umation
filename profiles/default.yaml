@@ -1,0 +1,44 @@
+# Default profile for generic video clipping
+name: "default"
+domain_description: "General interest video, podcasts, streams, interviews, and gameplay"
+glossary_terms:
+  - "viral"
+  - "highlight"
+  - "insane"
+  - "unbelievable"
+  - "reaction"
+  - "moment"
+
+hype_words:
+  - "holy shit"
+  - "no way"
+  - "insane"
+  - "oh my god"
+  - "what the hell"
+  - "let's go"
+  - "unbelievable"
+  - "crazy"
+  - "huge"
+  - "watch this"
+  - "clip it"
+  - "omg"
+  - "wtf"
+
+audio_events:
+  - "laughter"
+  - "applause"
+  - "screaming"
+  - "cheering"
+  - "explosion"
+  - "gunshot"
+  - "siren"
+
+ocr_triggers:
+  - "WINNER"
+  - "VICTORY"
+  - "GAME OVER"
+  - "FAILED"
+  - "NEW RECORD"
+  - "BONUS"
+
+weights_override: {}

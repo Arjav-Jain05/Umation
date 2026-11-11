@@ -175,6 +175,16 @@ class Signals(BaseModel):
     speech_ratio: float = 0.0
     burst_count: int = 0
     topical_hits: int = 0
+    audience_score: float | None = None
+    audience_available: bool = False
+    audience_breakdown: dict[str, Any] = Field(default_factory=dict)
+    audio_events_score: float = 0.0
+    audio_events: list[str] = Field(default_factory=list)
+    emotion_score: float = 0.0
+    text_hype_score: float = 0.0
+    motion_score: float = 0.0
+    scene_cuts_count: int = 0
+    hot_zone_overlap: bool = False
 
 
 class SignalsArtifact(ArtifactModel):
