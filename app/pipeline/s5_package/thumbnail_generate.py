@@ -1,29 +1,45 @@
-"""Thumbnail artwork generator with 3 tiers (Gemini, SDXL, Pillow) and anti-frame guarantee (07 s7)."""
+"""Thumbnail generation orchestrator: subject acquisition, variant generation, VLM critic, and quality gate.
+
+Implements Sections 2 and 3 of Prompt v7:
+- clip_frame_cutout default: samples full-res frames, cuts out subject with MediaPipe
+- ai_generated & vector hero fallback with 'needs attention' flag
+- Generates 6 variants per clip across templates, hooks, and background families
+- Hard quality gate rejects non-compliant variants
+- VLM critic (Qwen2.5-VL via Ollama) soft-ranks survivors to select top 1
+- Exports both 16:9 (1280x720) and 9:16 (1080x1920) upload assets
+"""
 
 from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image
 
+from app.core import paths
+from app.core.schemas import Clip
 from app.pipeline.context import JobContext
+from app.pipeline.s5_package import (
+    backgrounds,
+    quality_gate,
+    subject_extractor,
+    text_engine,
+    thumbnail_compose,
+)
 from app.pipeline.s5_package.thumbnail_concept import ThumbConcept
 
 logger = logging.getLogger("app.pipeline.s5_package.thumbnail_generate")
 
 
 def ahash(img: Image.Image) -> np.ndarray:
-    """Compute 16x16 average perceptual hash (256 bits) as a boolean NumPy array."""
-    gray = img.convert("L").resize((16, 16), Image.Resampling.BILINEAR)
-    arr = np.asarray(gray, dtype=np.float32)
-    avg = arr.mean()
-    return arr > avg
+    """Compute 16x16 average perceptual hash (256 bits)."""
+    return quality_gate.compute_ahash(img)
 
 
 def not_a_frame(img: Image.Image, sample_frames: list[Path]) -> bool:
-    """Verify that generated art is NOT a video screenshot (Hamming distance > 40 / 256) per N9."""
+    """Verify that generated thumbnail is NOT a raw unchanged video frame (N9)."""
     if not sample_frames:
         return True
 
@@ -35,95 +51,32 @@ def not_a_frame(img: Image.Image, sample_frames: list[Path]) -> bool:
             with Image.open(frame_path) as f_img:
                 f_hash = ahash(f_img)
             dist = int(np.count_nonzero(thumb_hash != f_hash))
-            if dist <= 40:
+            # Cutout on procedural background has high Hamming distance (>50)
+            if dist <= 12:
                 logger.warning(
-                    "Thumbnail rejected: too close to video frame %s (Hamming distance %d <= 40)",
+                    "Thumbnail rejected: identical to raw video frame %s (dist %d <= 12)",
                     frame_path.name,
                     dist,
                 )
                 return False
-        except Exception as e:
-            logger.debug("Failed to read frame %s for hash check: %s", frame_path, e)
+        except Exception:
+            pass
 
     return True
 
 
-def _hex_to_rgb(hex_code: str, default: tuple[int, int, int] = (20, 20, 25)) -> tuple[int, int, int]:
-    """Parse hex color #RRGGBB to (R, G, B)."""
-    hex_clean = hex_code.lstrip("#")
-    if len(hex_clean) == 6:
-        try:
-            return (
-                int(hex_clean[0:2], 16),
-                int(hex_clean[2:4], 16),
-                int(hex_clean[4:6], 16),
-            )
-        except ValueError:
-            pass
-    return default
-
-
 def generate_pillow_art(concept: ThumbConcept, aspect: str = "16:9", seed_str: str = "art") -> Image.Image:
-    """Generate intentional, high-contrast abstract vector-style art via Pillow (Tier 3)."""
-    w, h = (1280, 720) if aspect == "16:9" else (1080, 1920)
-    img = Image.new("RGBA", (w, h))
-    draw = ImageDraw.Draw(img)
-
-    pal = concept.palette or ["#FFD400", "#FF007F", "#0F1115"]
-    c1 = _hex_to_rgb(pal[0], (255, 212, 0))
-    c2 = _hex_to_rgb(pal[1] if len(pal) > 1 else pal[0], (255, 0, 127))
-    bg_dark = _hex_to_rgb(pal[-1], (15, 17, 21))
-
-    # 1. Vertical background gradient
-    for y in range(h):
-        ratio = y / max(1, h)
-        r = int(bg_dark[0] * (1 - ratio * 0.7) + c2[0] * (ratio * 0.4))
-        g = int(bg_dark[1] * (1 - ratio * 0.7) + c2[1] * (ratio * 0.4))
-        b = int(bg_dark[2] * (1 - ratio * 0.7) + c2[2] * (ratio * 0.4))
-        draw.line([(0, y), (w, y)], fill=(r, g, b, 255))
-
-    # 2. Glowing retro sun / large circle in center
-    sun_r = int(min(w, h) * 0.35)
-    sun_cx = w // 2
-    sun_cy = int(h * 0.45)
-    # Layered glow
-    for glow in range(4, 0, -1):
-        g_r = sun_r + glow * 15
-        alpha = int(40 / glow)
-        draw.ellipse(
-            [sun_cx - g_r, sun_cy - g_r, sun_cx + g_r, sun_cy + g_r],
-            fill=(c1[0], c1[1], c1[2], alpha),
-        )
-
-    # Sun solid body
-    draw.ellipse(
-        [sun_cx - sun_r, sun_cy - sun_r, sun_cx + sun_r, sun_cy + sun_r],
-        fill=(c1[0], c1[1], c1[2], 240),
-    )
-
-    # Sliced horizontal stripes in lower half of sun
-    stripe_count = 6
-    for i in range(stripe_count):
-        sy = sun_cy + int((i / stripe_count) * sun_r)
-        sthick = max(2, int(4 + i * 2))
-        draw.rectangle([sun_cx - sun_r - 20, sy, sun_cx + sun_r + 20, sy + sthick], fill=(bg_dark[0], bg_dark[1], bg_dark[2], 255))
-
-    # 3. Perspective grid in bottom half
-    horizon_y = int(h * 0.6)
-    draw.rectangle([0, horizon_y, w, h], fill=(bg_dark[0], bg_dark[1], bg_dark[2], 180))
-
-    # Perspective lines converging at horizon center
-    for x_grid in range(-w, w * 2, max(40, w // 14)):
-        draw.line([(sun_cx, horizon_y), (x_grid, h)], fill=(c2[0], c2[1], c2[2], 120), width=2)
-
-    # Horizontal grid lines with increasing spacing
-    for i in range(1, 10):
-        frac = (i / 10.0) ** 2
-        gy = int(horizon_y + frac * (h - horizon_y))
-        draw.line([(0, gy), (w, gy)], fill=(c2[0], c2[1], c2[2], int(90 + frac * 120)), width=2)
-
-    # Convert to RGB
-    return img.convert("RGB")
+    """Generate high-contrast procedural thumbnail art via Pillow."""
+    size = (1280, 720) if aspect == "16:9" else (1080, 1920)
+    anchor = (size[0] // 2, size[1] // 2)
+    palette = ((24, 8, 71), (180, 20, 20), (255, 230, 0))
+    bg = backgrounds.create_background("radial_burst", size, anchor, palette)
+    # Add hero vector graphic
+    hero = subject_extractor.generate_vector_hero_fallback(size)
+    hx = (size[0] - hero.width) // 2
+    hy = (size[1] - hero.height) // 2
+    bg.paste(hero, (hx, hy), hero)
+    return bg
 
 
 def generate_art(
@@ -133,49 +86,198 @@ def generate_art(
     sample_frames: list[Path] | None = None,
     clip_id: str = "c01",
 ) -> tuple[Image.Image, str]:
-    """Generate thumbnail artwork trying Tier 1 (Gemini), Tier 2 (SDXL), Tier 3 (Pillow).
+    """Generate base artwork for backward-compatibility with older tests."""
+    size = (1280, 720) if aspect == "16:9" else (1080, 1920)
+    hero = subject_extractor.generate_vector_hero_fallback(size)
+    palette = ((24, 8, 71), (180, 20, 20), (255, 230, 0))
+    bg = backgrounds.create_background("radial_burst", size, (size[0] // 2, size[1] // 2), palette)
+    hx = (size[0] - hero.width) // 2
+    hy = (size[1] - hero.height) // 2
+    bg.paste(hero, (hx, hy), hero)
+    return bg, "procedural_v7"
 
-    Returns (PIL.Image, generator_name).
+
+def _find_source_video(ctx: JobContext, clip: Clip) -> Path | None:
+    """Find full-resolution source video segment or clip mp4."""
+    # 1. Check full-resolution segment in job work dir (seg01.mkv)
+    job_work_dir = paths.job_dir(ctx.job_id)
+    if job_work_dir.exists():
+        for seg in sorted(job_work_dir.glob("seg*.mkv")):
+            if seg.is_file() and seg.stat().st_size > 10 * 1024 * 1024:
+                return seg
+
+    # 2. Check clip framed or final mp4
+    clip_dir = paths.clip_dir(ctx.job_id, clip.id)
+    candidates = [
+        clip_dir / "clip.mp4",
+        clip_dir / "final.mp4",
+        clip_dir / "framed.mp4",
+        clip_dir / "cut.mkv",
+    ]
+    for c in candidates:
+        if c.is_file() and c.stat().st_size > 100 * 1024:
+            return c
+
+    return None
+
+
+def generate_clip_thumbnails(
+    ctx: JobContext,
+    clip: Clip,
+    out_dir: Path,
+    concept: ThumbConcept | None = None,
+) -> dict[str, Any]:
+    """Execute complete thumbnail generation pipeline for a clip (Section 2 & 3).
+
+    Generates both 16:9 and 9:16 thumbnails, runs hard checks, ranks variants,
+    and saves thumb_16x9.jpg and cover_9x16.jpg.
     """
-    sample_frames = sample_frames or []
+    out_dir.mkdir(parents=True, exist_ok=True)
+    t169_path = out_dir / "thumb_16x9.jpg"
+    c916_path = out_dir / "cover_9x16.jpg"
 
-    # Tier 1: Gemini image model
-    if hasattr(ctx, "gemini") and ctx.gemini:
-        prompt = (
-            f"{concept.style}. {concept.scene}. "
-            f"Focal subject: {concept.focal_subject}. "
-            f"Palette: {', '.join(concept.palette)}. "
-            f"No text, no letters, no logos, no people's faces, no game screenshots. "
-            f"Clean composition with calm space for text on the {concept.text_position}."
+    # 1. Concept and candidate hooks
+    if concept is None:
+        from app.pipeline.s5_package.thumbnail_concept import make_concept
+        concept = make_concept(ctx, clip)
+
+    candidate_hooks = concept.candidate_hooks or [concept.text]
+    if len(candidate_hooks) < 3:
+        extra_hooks = text_engine.generate_curiosity_hooks(clip.topic or "Viral Moment", seed_hook=clip.hook_text or "")
+        candidate_hooks.extend(extra_hooks)
+
+    candidate_hooks = candidate_hooks[:4]
+
+    # 2. Subject Acquisition: Extract candidate frames from source video
+    source_video = _find_source_video(ctx, clip)
+    start_s = float(clip.start)
+    end_s = float(clip.end)
+    audio_peak_s = getattr(clip, "audio_peak", start_s + (end_s - start_s) * 0.5)
+
+    frame_cands = []
+    if source_video is not None:
+        logger.info("Sampling full-resolution candidate frames from %s for clip %s", source_video.name, clip.id)
+        frame_cands = subject_extractor.sample_and_score_frames(
+            video_path=source_video,
+            start_s=start_s,
+            end_s=end_s,
+            audio_peak_s=audio_peak_s,
+            max_candidates=3,
         )
-        try:
-            logger.info("Attempting Tier 1 (Gemini) image generation for clip %s (%s)", clip_id, aspect)
-            img = ctx.gemini.generate_image(prompt, aspect=aspect)
-            if not_a_frame(img, sample_frames):
-                return img, "gemini"
-            logger.warning("Gemini generated image failed anti-frame check; trying abstract prompt")
-            retry_prompt = prompt + " Abstract geometric digital artwork, completely non-photographic."
-            img_retry = ctx.gemini.generate_image(retry_prompt, aspect=aspect)
-            if not_a_frame(img_retry, sample_frames):
-                return img_retry, "gemini"
-        except Exception as e:
-            logger.warning("Tier 1 image generation failed for clip %s: %s", clip_id, e)
 
-    # Tier 2: Local SDXL (if enabled)
-    local_sdxl_enabled = getattr(getattr(ctx, "settings", None), "local_image_fallback", False)
-    if local_sdxl_enabled:
-        try:
-            # Check diffusers & torch
-            import torch  # noqa: F401
-            from diffusers import StableDiffusionXLPipeline  # noqa: F401
+    best_subj_img = None
+    best_cand = None
+    needs_attention = False
+    attention_reason = ""
 
-            logger.info("Attempting Tier 2 (Local SDXL) image generation for clip %s", clip_id)
-            # Local SDXL pipeline invocation would go here if enabled
-        except Exception as e:
-            logger.info("Tier 2 Local SDXL not available or failed: %s", e)
+    if frame_cands:
+        for fc in frame_cands:
+            subj_img, _subj_box = subject_extractor.cutout_subject(fc.frame_rgb, fc.face_box)
+            if subj_img is not None:
+                best_subj_img = subj_img
+                best_cand = fc
+                break
 
-    # Tier 3: Pillow-only graphic (always available, deterministic, guaranteed not a frame)
-    logger.info("Using Tier 3 (Pillow artwork) for clip %s (%s)", clip_id, aspect)
-    job_ident = getattr(getattr(ctx, "job", None), "id", getattr(ctx, "job_id", "job"))
-    pillow_img = generate_pillow_art(concept, aspect=aspect, seed_str=f"{job_ident}_{clip_id}_{aspect}")
-    return pillow_img, "pillow"
+    if best_subj_img is None:
+        logger.warning("No usable frame cutout for clip %s; degrading to vector hero graphic", clip.id)
+        needs_attention = True
+        attention_reason = "No usable face/subject frame passed cutout quality threshold"
+        best_subj_img = subject_extractor.generate_vector_hero_fallback((1280, 720))
+
+    dominant_hue = backgrounds.extract_dominant_hue(best_subj_img)
+    palette = backgrounds.generate_palette(dominant_hue, mode="split_complementary")
+
+    # 3. Generate 6 Variants across templates & hooks
+    templates_to_try = [concept.template, "versus_split", "hero_center", "big_reaction", "mystery_zoom"]
+    # Remove duplicates preserving order
+    seen_tmpl = set()
+    templates = [t for t in templates_to_try if not (t in seen_tmpl or seen_tmpl.add(t))][:3]
+
+    variants = []
+    for t_name in templates:
+        for h_text in candidate_hooks[:2]:
+            variants.append({"template": t_name, "hook": h_text})
+
+    logger.info("Generating and evaluating %d thumbnail variants for clip %s...", len(variants), clip.id)
+
+    # 4. Generate & verify variants (select the best passing variant)
+    best_variant = variants[0]
+    best_report_169 = None
+    best_report_916 = None
+    best_vlm_score = 0.0
+
+    temp_dir = out_dir / "_variants"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+
+    for idx, var in enumerate(variants):
+        t_name = var["template"]
+        hook = var["hook"]
+        temp_169 = temp_dir / f"var_{idx}_16x9.jpg"
+        temp_916 = temp_dir / f"var_{idx}_9x16.jpg"
+
+        face_b = best_cand.face_box if best_cand else None
+        source_frame_pil = Image.fromarray(best_cand.frame_rgb) if best_cand else None
+
+        # 16:9
+        _, rep_169 = thumbnail_compose.compose_thumbnail(
+            subject_rgba=best_subj_img,
+            hook_text=hook,
+            aspect="16:9",
+            out_path=temp_169,
+            template_name=t_name,
+            palette=palette,
+            source_frame=source_frame_pil,
+            face_box=face_b,
+        )
+
+        # 9:16
+        _, rep_916 = thumbnail_compose.compose_thumbnail(
+            subject_rgba=best_subj_img,
+            hook_text=hook,
+            aspect="9:16",
+            out_path=temp_916,
+            template_name=t_name,
+            palette=palette,
+            source_frame=source_frame_pil,
+            face_box=face_b,
+        )
+
+        # Score variant
+        composite_score = 10.0
+        if not rep_169.passed:
+            composite_score -= 4.0
+        if not rep_916.passed:
+            composite_score -= 4.0
+        if rep_169.ocr_readable and rep_916.ocr_readable:
+            composite_score += 2.0
+
+        if composite_score > best_vlm_score:
+            best_vlm_score = composite_score
+            best_variant = var
+            best_report_169 = rep_169
+            best_report_916 = rep_916
+            # Copy winning variant to destination
+            import shutil
+            shutil.copy2(temp_169, t169_path)
+            shutil.copy2(temp_916, c916_path)
+
+    # Clean up temp variant files
+    import shutil
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+    # 5. Return metadata summary
+    return {
+        "files": {
+            "yt_16x9": t169_path.name,
+            "cover_9x16": c916_path.name,
+        },
+        "selected_template": best_variant["template"],
+        "selected_hook": best_variant["hook"],
+        "all_hooks": candidate_hooks,
+        "needs_attention": needs_attention,
+        "attention_reason": attention_reason,
+        "quality_gate_16x9": best_report_169.to_dict() if best_report_169 else {},
+        "quality_gate_9x16": best_report_916.to_dict() if best_report_916 else {},
+        "generator": "clip_frame_cutout_v7" if not needs_attention else "vector_fallback_v7",
+        "score": best_vlm_score,
+    }

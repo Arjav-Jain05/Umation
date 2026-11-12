@@ -15,7 +15,7 @@ from app.core.models import update_clip
 from app.core.schemas import Clip, Plan, SourceInfo, WordsArtifact
 from app.pipeline.context import JobContext
 from app.pipeline.s3_build import captions
-from app.pipeline.s5_package import thumbnail_compose, thumbnail_concept, thumbnail_generate
+from app.pipeline.s5_package import thumbnail_concept, thumbnail_generate
 from app.pipeline.s5_package.metadata import generate_metadata
 from app.utils import text
 from app.utils.ffmpeg import run_ffmpeg
@@ -131,40 +131,25 @@ def package_clip(ctx: JobContext, clip: Clip) -> Path:
     dur = float(clip.duration or (clip.end - clip.start))
     sample_frames = _sample_clip_frames(pkg_mp4, dur, clip_dir / "samples", count=12)
 
-    # 6. Generate Concept and Thumbnails (Tier 1 -> 2 -> 3)
+    # 6. Generate MrBeast-Style Clickbait Thumbnails (v7 Real-Subject Architecture)
     concept = thumbnail_concept.make_concept(ctx, clip)
-    art_16x9, generator_used = thumbnail_generate.generate_art(
-        concept=concept,
-        aspect="16:9",
-        ctx=ctx,
-        sample_frames=sample_frames,
-        clip_id=clip.id,
-    )
-
-    art_9x16, _ = thumbnail_generate.generate_art(
-        concept=concept,
-        aspect="9:16",
-        ctx=ctx,
-        sample_frames=sample_frames,
-        clip_id=clip.id,
-    )
+    thumb_summary = thumbnail_generate.generate_clip_thumbnails(ctx, clip, pkg_dir, concept=concept)
 
     thumb_16x9_path = pkg_dir / "thumb_16x9.jpg"
     cover_9x16_path = pkg_dir / "cover_9x16.jpg"
 
-    thumbnail_compose.compose_16x9(art_16x9, concept, thumb_16x9_path)
-    thumbnail_compose.compose_9x16(art_9x16, concept, cover_9x16_path)
-
-    # Section 7 Task D: 160px preview OCR readability check
-    ocr_ok, ocr_msg = thumbnail_compose.verify_thumbnail_ocr(cover_9x16_path, concept.text)
-
     # Update metadata with thumbnail info
     meta.thumbnail = {
         "concept": concept.model_dump(),
-        "files": {"yt_16x9": "thumb_16x9.jpg", "cover_9x16": "cover_9x16.jpg"},
-        "generator": generator_used,
-        "ocr_160px_readable": ocr_ok,
-        "ocr_160px_detail": ocr_msg,
+        "files": thumb_summary.get("files", {"yt_16x9": "thumb_16x9.jpg", "cover_9x16": "cover_9x16.jpg"}),
+        "generator": thumb_summary.get("generator", "clip_frame_cutout_v7"),
+        "selected_template": thumb_summary.get("selected_template", "big_reaction"),
+        "selected_hook": thumb_summary.get("selected_hook", concept.text),
+        "needs_attention": thumb_summary.get("needs_attention", False),
+        "attention_reason": thumb_summary.get("attention_reason", ""),
+        "quality_gate_16x9": thumb_summary.get("quality_gate_16x9", {}),
+        "quality_gate_9x16": thumb_summary.get("quality_gate_9x16", {}),
+        "ocr_160px_readable": thumb_summary.get("quality_gate_9x16", {}).get("ocr_readable", True),
     }
 
     # 7. Write metadata.json and metadata.txt
@@ -194,7 +179,7 @@ def package_clip(ctx: JobContext, clip: Clip) -> Path:
         f"  Audio Energy Score: {audio_s if audio_s is not None else 'N/A'}\n"
         f"Risk Level: {meta.risk}\n"
         f"Risk Flags: {', '.join(meta.risk_flags) if meta.risk_flags else 'None'}\n"
-        f"Thumbnail Generator: {generator_used}\n"
+        f"Thumbnail Generator: {thumb_summary.get('generator', 'clip_frame_cutout_v7')}\n"
     )
     pkg_notes.write_text(notes_content, encoding="utf-8")
 

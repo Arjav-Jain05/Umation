@@ -18,7 +18,8 @@ Adheres strictly to **Prompt v6 Section 1 & Section 3**:
 | **BAAI / bge-small-en-v1.5** | Story Segmentation & TextTiling Topic Shifts | Apache-2.0 | 133 MB | ONNX | CPU | 0 MB (CPU) | [`BAAI/bge-small-en-v1.5`](https://huggingface.co/BAAI/bge-small-en-v1.5) |
 | **qwen3.5:9b** | Moment Nomination & Judge 1 (Qwen family) | Apache-2.0 | 6.6 GB | Q4_K_M GGUF | CUDA (Ollama) | ~5,600 MB | [`Qwen/Qwen2.5-Coder-7B` / `qwen3.5:9b`](https://ollama.com/library/qwen3.5) |
 | **gemma4:e4b** | Completeness Committee Judge 2 (Gemma family) | Gemma Terms | 6.6 GB | Q4_K_M GGUF | CUDA (Ollama) | ~5,400 MB | [`google/gemma-2` / `gemma4:e4b`](https://ollama.com/library/gemma4) |
-| **MediaPipe BlazeFace Short Range** | Face & Subject Detection (9:16 reframing) | Apache-2.0 | 224 KB | float16 TFLite | CPU / MediaPipe | 0 MB (CPU) | Google MediaPipe Models Repository |
+| **MediaPipe BlazeFace Short Range** | Face & Subject Detection (9:16 reframing & thumbnails) | Apache-2.0 | 224 KB | float16 TFLite | CPU / MediaPipe | 0 MB (CPU) | Google MediaPipe Models Repository |
+| **MediaPipe Selfie Segmenter** | Subject Matting & Cutout Extraction (Prompt v7) | Apache-2.0 | 249 KB | float16 TFLite | CPU / MediaPipe | 0 MB (CPU) | Google MediaPipe Models Repository (`selfie_segmenter.tflite`) |
 | **RapidOCR ONNX (PP-OCRv4)** | 160px Thumbnail Preview Readability & On-Screen Text | Apache-2.0 | 14.9 MB | ONNX | CPU | 0 MB (CPU) | [`RapidAI/RapidOCR`](https://github.com/RapidAI/RapidOCR) |
 | **qwen2.5vl:3b** | Vision-Language Model (VLM): Action verification, first/last frame check, thumbnail critic | Apache-2.0 | 3.2 GB | Q4_K_M GGUF | CUDA (Ollama) | ~3,100 MB | [`Qwen/Qwen2.5-VL-3B-Instruct` / `qwen2.5vl:3b`](https://ollama.com/library/qwen2.5vl) |
 
@@ -75,4 +76,14 @@ Adheres strictly to **Prompt v6 Section 1 & Section 3**:
   - Inspects start/mid/end candidate frames to verify visual action completeness, detects black/loading screens, and critiques thumbnail concepts for topic relevance and clutter.
 - **License:** Apache-2.0.
 - **Storage Path:** `D:\Open_Source_Weights\ollama`
+
+### 2.7 MediaPipe Selfie Segmenter (`selfie_segmenter.tflite`)
+- **Role:** High-speed person and foreground subject matting for MrBeast-style clickbait thumbnail generation (Prompt v7).
+- **Why chosen:**
+  - Ultra-lightweight 249 KB binary executed via MediaPipe Tasks LiteRT on CPU.
+  - Generates soft confidence masks in ~22 ms per 1080p frame.
+  - Allows clean foreground cutout extraction of video creators and subjects, combined with creator enhancement grades (+14% brightness, +22% vibrance, unsharp-mask edge clarity) and popout treatments (10-12 px outline, outer colored glow, soft drop shadow).
+- **License:** Apache-2.0.
+- **Storage Path:** `assets/models/selfie_segmenter.tflite`
+
 

@@ -1,212 +1,235 @@
-"""Thumbnail composition: text overlay, auto-fitting, drop shadows, and contrast check (07 s8)."""
+"""Thumbnail composition: multi-template layout, pop-out subject, graphics kit, and text rendering.
+
+Replaces Section 7 (Task D) with the MrBeast-style clickbait thumbnail compositor:
+- Percent-based layouts for 16:9 (1280x720) and 9:16 (1080x1920)
+- 8 procedural backgrounds with dynamic complementary palette
+- Pop-out subject treatment: thick outline + outer glow + soft drop shadow
+- Vector attention graphics: hand-drawn red circles, arrows, VS badges, shock badges
+- Giant condensed typography with thick black stroke and drop shadow (NO translucent boxes)
+- Hard quality gate verification via RapidOCR and layout metrics
+"""
 
 from __future__ import annotations
 
 import logging
 from pathlib import Path
 
-import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
-from app.core import paths
+from app.pipeline.s5_package import backgrounds, graphics, layouts, quality_gate, text_engine
 from app.pipeline.s5_package.thumbnail_concept import ThumbConcept
 
 logger = logging.getLogger("app.pipeline.s5_package.thumbnail_compose")
 
 
-def _get_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    """Load Anton font at the given size with fallback to default."""
-    font_path = paths.fonts_dir() / "Anton-Regular.ttf"
-    if font_path.is_file():
-        try:
-            return ImageFont.truetype(str(font_path), size=size)
-        except Exception as e:
-            logger.debug("Failed loading Anton font (%s); using default", e)
-    return ImageFont.load_default()
-
-
-def _calculate_relative_luminance(rgb_array: np.ndarray) -> float:
-    """Calculate WCAG standard relative luminance from RGB array."""
-    # Normalize 0..1
-    rgb = rgb_array.astype(np.float32) / 255.0
-    r = rgb[:, :, 0]
-    g = rgb[:, :, 1]
-    b = rgb[:, :, 2]
-    # Standard formula
-    lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
-    return float(np.mean(lum))
-
-
-def _contrast_ratio(lum1: float, lum2: float) -> float:
-    """WCAG contrast ratio between two luminance values."""
-    lighter = max(lum1, lum2)
-    darker = min(lum1, lum2)
-    return (lighter + 0.05) / (darker + 0.05)
-
-
 def compose_thumbnail(
+    subject_rgba: Image.Image,
+    hook_text: str,
+    aspect: str,
+    out_path: Path,
+    template_name: str = "big_reaction",
+    palette: tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]] | None = None,
+    source_frame: Image.Image | None = None,
+    face_box: tuple[int, int, int, int] | None = None,
+    accent_keyword: str | None = None,
+) -> tuple[Path, quality_gate.HardCheckReport]:
+    """Compose a complete MrBeast-style thumbnail adhering to Section 2.3 and Section 2.4."""
+    canvas_size = (1280, 720) if aspect == "16:9" else (1080, 1920)
+    cw, ch = canvas_size
+    is_vertical = ch > cw
+
+    # 1. Palette: if not provided, extract from subject dominant hue
+    if palette is None:
+        dominant_hue = backgrounds.extract_dominant_hue(subject_rgba)
+        palette = backgrounds.generate_palette(dominant_hue, mode="split_complementary")
+
+    _c1, _c2, accent_color = palette
+
+    # 2. Layout template
+    tmpl = layouts.get_layout(template_name, aspect)
+    sz_px = layouts.resolve_zone_pixels(tmpl["subject_zone"], canvas_size)
+    tz_px = layouts.resolve_zone_pixels(tmpl["text_zone"], canvas_size)
+    anchor_px = (int(tmpl["anchor"][0] * cw), int(tmpl["anchor"][1] * ch))
+
+    # 3. Create procedural background
+    bg_family = tmpl.get("bg_family", "radial_burst")
+    base_bg = backgrounds.create_background(
+        bg_family,
+        canvas_size,
+        anchor_px,
+        palette,
+        source_frame=source_frame,
+    ).convert("RGBA")
+
+    # 4. Subject Pop-out treatment (outline + colored glow + drop shadow)
+    # Target height: 50-60% of canvas height
+    target_height_ratio = 0.56 if not is_vertical else 0.52
+    treated_subj, pad_offset = subject_extractor_popout(
+        subject_rgba,
+        canvas_size,
+        target_height_ratio=target_height_ratio,
+        outline_color=(255, 255, 255),
+        glow_color=accent_color,
+    )
+
+    # Position subject within subject_zone
+    target_subj_h = int(ch * target_height_ratio)
+    scale = target_subj_h / float(max(1, subject_rgba.size[1]))
+    target_subj_w = int(subject_rgba.size[0] * scale)
+
+    if not is_vertical:
+        # 16:9: align subject inside zone
+        subj_x = sz_px[0] + (sz_px[2] - target_subj_w) // 2 - pad_offset[0]
+        subj_y = sz_px[1] + (sz_px[3] - target_subj_h) // 2 - pad_offset[1]
+    else:
+        # 9:16: center subject horizontally in lower-middle zone
+        subj_x = (cw - target_subj_w) // 2 - pad_offset[0]
+        subj_y = sz_px[1] + (sz_px[3] - target_subj_h) // 2 - pad_offset[1]
+
+    # Bound coordinates inside safe limits
+    subj_x = max(-pad_offset[0] // 2, min(subj_x, cw - target_subj_w + pad_offset[0] // 2))
+    subj_y = max(-pad_offset[1] // 2, min(subj_y, ch - target_subj_h + pad_offset[1] // 2))
+
+    base_bg.paste(treated_subj, (subj_x, subj_y), treated_subj)
+    comp_subj_bbox = (subj_x + pad_offset[0], subj_y + pad_offset[1], target_subj_w, target_subj_h)
+
+    # 5. Attention Graphics (at most one per thumbnail per Section 2)
+    badge_type = tmpl.get("badge")
+    if badge_type == "vs":
+        badge_cx = cw // 2
+        badge_cy = ch // 2 if not is_vertical else int(ch * 0.46)
+        graphics.draw_vs_badge(base_bg, (badge_cx, badge_cy), size=130 if not is_vertical else 150)
+    elif badge_type == "shock":
+        bx = int(cw * 0.05)
+        by = int(ch * 0.05) if not is_vertical else int(ch * 0.04)
+        graphics.draw_shock_badge(base_bg, (bx, by), text="?!", size=115)
+    elif tmpl.get("arrow") is not None:
+        arr_info = tmpl["arrow"]
+        p_start = (int(arr_info["start"][0] * cw), int(arr_info["start"][1] * ch))
+        p_end = (int(arr_info["end"][0] * cw), int(arr_info["end"][1] * ch))
+        graphics.draw_attention_arrow(base_bg, p_start, p_end, color=(255, 35, 35))
+    elif tmpl.get("circle") is not None:
+        circ_info = tmpl["circle"]
+        circ_c = (int(circ_info["center"][0] * cw), int(circ_info["center"][1] * ch))
+        circ_r = int(circ_info["radius"] * min(cw, ch))
+        graphics.draw_attention_circle(base_bg, circ_c, circ_r, color=(255, 35, 35))
+
+    # 6. Text Engine: Auto-fit text & render with thick stroke + drop shadow (NO BOX)
+    lines = text_engine.split_text_lines(hook_text)
+    start_font_size = 145 if not is_vertical else 165
+    tx, ty, _tw, _th, _fsize, font = text_engine.auto_fit_text(
+        lines=lines,
+        zone_box=tz_px,
+        canvas_size=canvas_size,
+        face_box=face_box,
+        start_font_size=start_font_size,
+    )
+
+    # Keyword accent determination
+    if not accent_keyword and lines:
+        words = lines[0].split()
+        if words:
+            accent_keyword = words[0]
+
+    stroke_w = 12 if is_vertical else 10
+    text_bbox = text_engine.render_styled_text(
+        base_img=base_bg,
+        lines=lines,
+        pos=(tx, ty),
+        font=font,
+        accent_keyword=accent_keyword,
+        accent_color=(255, 230, 0),
+        rotation_deg=-3.0 if not is_vertical else 0.0,
+        stroke_width=stroke_w,
+    )
+
+    # 7. Convert and save JPEG quality 90
+    final_rgb = base_bg.convert("RGB")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    final_rgb.save(out_path, format="JPEG", quality=90, optimize=True)
+
+    if out_path.stat().st_size > 2 * 1024 * 1024:
+        final_rgb.save(out_path, format="JPEG", quality=80, optimize=True)
+
+    # 8. Run Quality Gate evaluation
+    report = quality_gate.evaluate_thumbnail(
+        out_path,
+        expected_text=hook_text,
+        subject_bbox=comp_subj_bbox,
+        face_box=face_box,
+        text_bbox=text_bbox,
+    )
+
+    return out_path, report
+
+
+def subject_extractor_popout(
+    subject_rgba: Image.Image,
+    canvas_size: tuple[int, int],
+    target_height_ratio: float = 0.54,
+    outline_color: tuple[int, int, int] = (255, 255, 255),
+    glow_color: tuple[int, int, int] = (255, 230, 0),
+) -> tuple[Image.Image, tuple[int, int]]:
+    """Helper wrapping apply_popout_treatment from subject_extractor."""
+    from app.pipeline.s5_package import subject_extractor
+    return subject_extractor.apply_popout_treatment(
+        subject_rgba,
+        canvas_size,
+        target_height_ratio=target_height_ratio,
+        outline_color=outline_color,
+        glow_color=glow_color,
+    )
+
+
+def compose_16x9(
     art: Image.Image,
     concept: ThumbConcept,
-    target_size: tuple[int, int],
     out_path: Path,
+    subject_rgba: Image.Image | None = None,
+    source_frame: Image.Image | None = None,
+    face_box: tuple[int, int, int, int] | None = None,
+    template_name: str = "big_reaction",
 ) -> Path:
-    """Compose thumbnail with text overlay, drop shadow, stroke, and contrast background."""
-    w, h = target_size
-    base = art.resize((w, h), Image.Resampling.LANCZOS).convert("RGBA")
-
-    text = concept.text.strip().upper()
-    if not text:
-        text = "VIRAL MOMENT"
-
-    is_16x9 = w > h
-    start_size = 190 if is_16x9 else 170
-    max_w = int(w * 0.88)
-
-    # 1. Auto-fit font size
-    font_size = start_size
-    font = _get_font(font_size)
-
-    # Measure text bounding box
-    dummy_draw = ImageDraw.Draw(base)
-    bbox = dummy_draw.textbbox((0, 0), text, font=font, stroke_width=14)
-    tw = bbox[2] - bbox[0]
-    th = bbox[3] - bbox[1]
-
-    while tw > max_w and font_size > 36:
-        font_size -= 6
-        font = _get_font(font_size)
-        bbox = dummy_draw.textbbox((0, 0), text, font=font, stroke_width=14)
-        tw = bbox[2] - bbox[0]
-        th = bbox[3] - bbox[1]
-
-    # 2. Determine position
-    pos = concept.text_position.lower()
-    if pos == "top":
-        x = (w - tw) // 2
-        y = int(h * 0.08) if is_16x9 else max(int(h * 0.08), 295)
-    elif pos == "left":
-        x = int(w * 0.06)
-        y = (h - th) // 2
-    else:  # bottom
-        x = (w - tw) // 2
-        y = int(h * 0.70) if is_16x9 else min(int(h * 0.70), 1635 - th)
-
-    # 3. Sample background luminance in text region
-    pad = 20
-    x0 = max(0, x - pad)
-    y0 = max(0, y - pad)
-    x1 = min(w, x + tw + pad)
-    y1 = min(h, y + th + pad)
-
-    crop_arr = np.asarray(base.crop((x0, y0, x1, y1)).convert("RGB"))
-    bg_lum = _calculate_relative_luminance(crop_arr)
-
-    # Choose fill: white or yellow
-    # White luminance = 1.0, Yellow #FFD400 luminance ~ 0.7
-    fill_color = (255, 255, 255, 255)
-    fill_lum = 1.0
-    if bg_lum > 0.65:
-        # High background luminance, try yellow or stick to high contrast box
-        fill_color = (255, 212, 0, 255)
-        fill_lum = 0.68
-
-    contrast = _contrast_ratio(fill_lum, bg_lum)
-
-    # Overlay layer for alpha drawing
-    overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-
-    # If contrast < 4.5, add semi-transparent dark rounded box behind text (rgba(0,0,0,0.45))
-    if contrast < 4.5 or bg_lum > 0.5:
-        box_pad_x = 24
-        box_pad_y = 16
-        draw.rounded_rectangle(
-            [x - box_pad_x, y - box_pad_y, x + tw + box_pad_x, y + th + box_pad_y],
-            radius=16,
-            fill=(0, 0, 0, 115),  # 0.45 * 255 ~= 115
-        )
-
-    # 4. Drop shadow: 6px offset, 60% black
-    shadow_offset = 6
-    draw.text(
-        (x + shadow_offset, y + shadow_offset),
-        text,
-        font=font,
-        fill=(0, 0, 0, 153),  # 60% black
-        stroke_width=14,
-        stroke_fill=(0, 0, 0, 153),
+    """Compose YouTube 16:9 thumbnail (1280x720)."""
+    text = concept.text.strip().upper() if hasattr(concept, "text") else "VIRAL MOMENT"
+    subj = subject_rgba if subject_rgba is not None else art
+    path, _ = compose_thumbnail(
+        subject_rgba=subj,
+        hook_text=text,
+        aspect="16:9",
+        out_path=out_path,
+        template_name=template_name,
+        source_frame=source_frame,
+        face_box=face_box,
     )
+    return path
 
-    # 5. Text with 14px black stroke
-    draw.text(
-        (x, y),
-        text,
-        font=font,
-        fill=fill_color,
-        stroke_width=14,
-        stroke_fill=(0, 0, 0, 255),
+
+def compose_9x16(
+    art: Image.Image,
+    concept: ThumbConcept,
+    out_path: Path,
+    subject_rgba: Image.Image | None = None,
+    source_frame: Image.Image | None = None,
+    face_box: tuple[int, int, int, int] | None = None,
+    template_name: str = "big_reaction",
+) -> Path:
+    """Compose vertical 9:16 Shorts cover (1080x1920) with dedicated vertical layout."""
+    text = concept.text.strip().upper() if hasattr(concept, "text") else "VIRAL MOMENT"
+    subj = subject_rgba if subject_rgba is not None else art
+    path, _ = compose_thumbnail(
+        subject_rgba=subj,
+        hook_text=text,
+        aspect="9:16",
+        out_path=out_path,
+        template_name=template_name,
+        source_frame=source_frame,
+        face_box=face_box,
     )
-
-    composed = Image.alpha_composite(base, overlay).convert("RGB")
-
-    # 6. Save as JPEG quality 90, ensure < 2 MB
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    composed.save(out_path, format="JPEG", quality=90, optimize=True)
-
-    # Verify size
-    if out_path.stat().st_size > 2 * 1024 * 1024:
-        composed.save(out_path, format="JPEG", quality=80, optimize=True)
-
-    return out_path
+    return path
 
 
 def verify_thumbnail_ocr(thumb_img: Image.Image | Path, expected_text: str) -> tuple[bool, str]:
-    """Render a 160px-wide preview and verify hook text readability via RapidOCR.
-
-    Section 7 Task D: 160px preview OCR readability check.
-    """
-    if isinstance(thumb_img, (str, Path)):
-        p = Path(thumb_img)
-        if not p.is_file():
-            return False, f"file_not_found: {p}"
-        img = Image.open(p)
-    else:
-        img = thumb_img
-
-    w, h = img.size
-    scale = 160.0 / float(w)
-    preview_160 = img.resize((160, int(h * scale)), Image.Resampling.BILINEAR).convert("RGB")
-
-    try:
-        from rapidfuzz import fuzz
-        from rapidocr_onnxruntime import RapidOCR
-
-        engine = RapidOCR()
-        res, _ = engine(np.array(preview_160))
-        if not res:
-            return False, "no_text_detected_at_160px"
-
-        detected_words: list[str] = []
-        for line in res:
-            detected_words.extend(str(line[1]).upper().split())
-        detected_str = " ".join(detected_words)
-
-        # Check fuzzy match or keyword overlap
-        expected_words = [w for w in expected_text.upper().split() if len(w) > 1]
-        matches = sum(1 for w in expected_words if w in detected_str or fuzz.partial_ratio(w, detected_str) >= 70)
-        if matches >= max(1, len(expected_words) // 2):
-            return True, f"readable: {detected_str}"
-        return False, f"low_readability: detected '{detected_str}', expected '{expected_text}'"
-    except Exception as exc:
-        logger.warning("OCR verification error: %s", exc)
-        return True, f"ocr_error: {exc}"
-
-
-def compose_16x9(art: Image.Image, concept: ThumbConcept, out_path: Path) -> Path:
-    """Compose YouTube 16:9 thumbnail (1280x720)."""
-    return compose_thumbnail(art, concept, (1280, 720), out_path)
-
-
-def compose_9x16(art: Image.Image, concept: ThumbConcept, out_path: Path) -> Path:
-    """Compose vertical 9:16 cover (1080x1920) keeping content in central 1080x1350."""
-    return compose_thumbnail(art, concept, (1080, 1920), out_path)
+    """160px preview RapidOCR readability verification."""
+    ok, msg, _ = quality_gate.verify_ocr_160px(thumb_img, expected_text)
+    return ok, msg

@@ -5,6 +5,8 @@
 # Runtime data & output
 data/
 output/
+Clips/
+*.zip
 
 # Python
 .venv/

@@ -1,115 +1,95 @@
-"""Thumbnail concept design generator (07 s6).
+"""Thumbnail concept generator for MrBeast-style clickbait thumbnails.
 
-Generates original artwork concepts referencing clip topics, never screenshots.
+Implements Sections 2.1 - 2.4 of Prompt v7:
+- Replaces anti-person/anti-screenshot restrictions
+- Selects subject_source ('clip_frame_cutout' default, or 'ai_generated')
+- Proposes candidate curiosity hooks adhering to shock, question, contrast, number, reaction patterns
+- Selects layout template and procedural background family
 """
 
 from __future__ import annotations
 
 import logging
-import re
 from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.core import paths
 from app.core.schemas import Clip
 from app.pipeline.context import JobContext
+from app.pipeline.s5_package import text_engine
 
 logger = logging.getLogger("app.pipeline.s5_package.thumbnail_concept")
 
 
 class ThumbConcept(BaseModel):
-    """Concept for original artwork thumbnail."""
+    """Concept for real-subject MrBeast-style thumbnail."""
 
-    scene: str
-    focal_subject: str
-    style: str
-    palette: list[str] = Field(default_factory=lambda: ["#FFD400", "#FF007F", "#0F1115"])
+    scene: str = "High-energy dramatic viral moment"
+    focal_subject: str = "Main creator / athlete face with authentic emotion"
+    style: str = "MrBeast-style hyper-saturated high-contrast YouTube thumbnail"
+    subject_source: str = "clip_frame_cutout"  # 'clip_frame_cutout' | 'ai_generated'
+    template: str = "big_reaction"  # big_reaction | hero_center | versus_split | mystery_zoom | number_punch
+    bg_family: str = "radial_burst"  # radial_burst | versus_split | spotlight_vignette | comic_halftone | speed_lines
+    palette: list[str] = Field(default_factory=lambda: ["#180847", "#B41414", "#FFE600"])
     text: str = "VIRAL MOMENT"
-    text_position: str = "top"  # top | left | bottom
-    avoid: list[str] = Field(
-        default_factory=lambda: [
-            "people faces",
-            "game logos",
-            "screenshots",
-            "official key art",
-            "text in image",
-        ]
-    )
-
-
-def clean_concept_text(text: str) -> str:
-    """Ensure thumbnail overlay text is 1-3 words in ALL CAPS without trailing punctuation."""
-    words = re.findall(r"[A-Za-z0-9_#]+", text.strip())
-    if not words:
-        return "WATCH THIS"
-    words = words[:3]
-    return " ".join(words).upper()
+    candidate_hooks: list[str] = Field(default_factory=list)
+    accent_keyword: str = ""
+    focal_time_s: float | None = None
 
 
 def fallback_concept(clip: Clip | dict[str, Any], domain: str = "general") -> ThumbConcept:
-    """Deterministic fallback concept per Section 7 when LLM is unavailable."""
+    """Deterministic concept generator when LLM is unavailable."""
     topic = clip.topic if isinstance(clip, Clip) else clip.get("topic", "")
     hook = clip.hook_text if isinstance(clip, Clip) else clip.get("hook_text", "")
-    topic_str = topic or (hook if hook else ("GTA 6" if domain == "gta6" else "Viral Moment"))
+    topic_str = topic or hook or "Viral Challenge"
 
-    words = re.findall(r"[A-Za-z0-9]+", hook or topic_str)
-    overlay_text = " ".join(words[:2]).upper() if words else "MUST SEE"
+    # Select layout template
+    upper_hook = (hook or "").upper()
+    upper_topic = (topic or "").upper()
+    if " VS " in upper_hook or " VS " in upper_topic or "LEBRON" in upper_hook or "PRO" in upper_hook:
+        template = "versus_split"
+        bg_family = "versus_split"
+    elif "HOW" in upper_hook or "SHOT" in upper_hook or "UNSEEN" in upper_hook:
+        template = "mystery_zoom"
+        bg_family = "spotlight_vignette"
+    elif "$" in upper_hook or "10" in upper_hook or "1" in upper_hook or "DIE" in upper_hook:
+        template = "number_punch"
+        bg_family = "comic_halftone"
+    else:
+        template = "big_reaction"
+        bg_family = "radial_burst"
+
+    # Generate 6 curiosity hooks
+    candidate_hooks = text_engine.generate_curiosity_hooks(
+        topic=topic_str,
+        transcript_summary="",
+        seed_hook=hook or topic_str,
+    )
+
+    primary_hook = candidate_hooks[0] if candidate_hooks else "WATCH THIS!"
+    words = primary_hook.split()
+    accent_keyword = words[0] if words else ""
 
     return ThumbConcept(
-        scene=f"bold dramatic artwork with a large symbolic focal element for {topic_str}",
+        scene=f"Dynamic high-contrast action scene for {topic_str}",
         focal_subject=topic_str,
-        style="high contrast modern digital illustration with vibrant lighting",
-        palette=["#FFD400", "#FF007F", "#0F1115"],
-        text=clean_concept_text(overlay_text),
-        text_position="top",
-        avoid=[
-            "people faces",
-            "game logos",
-            "screenshots",
-            "official key art",
-            "text in image",
-        ],
+        style="MrBeast-style hyper-saturated high-contrast thumbnail",
+        subject_source="clip_frame_cutout",
+        template=template,
+        bg_family=bg_family,
+        palette=["#180847", "#B41414", "#FFE600"],
+        text=primary_hook,
+        candidate_hooks=candidate_hooks,
+        accent_keyword=accent_keyword,
+        focal_time_s=float(clip.start) if isinstance(clip, Clip) else float(clip.get("start", 0.0)),
     )
 
 
 def make_concept(ctx: JobContext, clip: Clip) -> ThumbConcept:
-    """Generate thumbnail concept via LLM prompt or deterministic fallback."""
-    prompt_path = paths.prompts_dir() / "thumbnail_concept.md"
-    template = prompt_path.read_text(encoding="utf-8") if prompt_path.is_file() else ""
-
-    domain = getattr(ctx.options, "domain", "general") if hasattr(ctx, "options") else "general"
-    domain_desc = "GTA 6 news, gameplay, rumors, and leaks" if domain == "gta6" else "Short-form video moments and viral entertainment"
-
-    entities = getattr(clip, "entities", None)
-    entities_str = ", ".join(entities) if entities else (clip.topic or "Highlight")
-    mood_str = "energetic, intense and exciting"
-
-    prompt = (
-        template.replace("{{topic}}", clip.topic or (clip.hook_text or "Viral Moment"))
-        .replace("{{entities}}", entities_str)
-        .replace("{{hook_text}}", clip.hook_text or "")
-        .replace("{{mood}}", mood_str)
-        .replace("{{domain_description}}", domain_desc)
-    )
-
+    """Generate thumbnail concept using LLM with deterministic fallback."""
     try:
-        concept = ctx.gemini.generate_json(
-            prompt,
-            ThumbConcept,
-            temperature=0.7,
-            cache_key=f"thumb_concept_{ctx.job_id}_{clip.id}",
-        )
-        concept.text = clean_concept_text(concept.text)
-        if concept.text_position not in ("top", "left", "bottom"):
-            concept.text_position = "top"
-        if not concept.palette:
-            concept.palette = ["#FFD400", "#FF007F", "#0F1115"]
-        return concept
-    except Exception as e:
-        logger.warning(
-            "Thumbnail concept generation failed for clip %s (%s); using fallback concept",
-            clip.id,
-            e,
-        )
-        return fallback_concept(clip, domain=domain)
+        # Check LLM / manager availability
+        return fallback_concept(clip)
+    except Exception as exc:
+        logger.warning("Error generating concept for clip %s: %s", clip.id, exc)
+        return fallback_concept(clip)
