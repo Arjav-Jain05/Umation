@@ -45,9 +45,11 @@ def run(ctx: JobContext) -> None:
         clip_dir = paths.clip_dir(ctx.job_id, clip.id)
         clip_dir.mkdir(parents=True, exist_ok=True)
         final_mp4 = clip_dir / "clip.mp4"
+        framed_mp4 = clip_dir / "framed.mp4"
+        clean_audio = clip_dir / "audio_clean.wav"
 
         # Check if clip is already rendered and valid (resumability)
-        if final_mp4.is_file():
+        if final_mp4.is_file() and framed_mp4.is_file() and clean_audio.is_file():
             qa_res = check_clip_file(final_mp4, allow_short=True)
             if qa_res.passed:
                 logger.info("[%s] Clip %s already built and verified; skipping", ctx.job_id, clip.id)
@@ -116,28 +118,25 @@ def run(ctx: JobContext) -> None:
                 mask_profanity_flag=getattr(ctx.options, "mask_profanity", True),
             )
 
-            # 5. Fast Single-Pass Render directly to clip.mp4 (-ss before -i, bokeh, ASS, NVENC)
-            final_mp4, qa_report = final_render.render_clip_fast_single_pass(
+            # 5. Render framed.mp4 (clean 9:16 layout without captions) and audio_clean.wav (48kHz audio)
+            framed_mp4, clean_audio = final_render.render_framed_and_audio(
                 seg_path=seg_file,
                 rel_start=rel_start,
                 dur=dur,
                 clip_dir=clip_dir,
                 layout=layout_decision.layout,
                 cam_rect=layout_decision.cam_rect,
-                has_captions=True,
-                is_non_final_part=is_non_final_part,
                 fps=30.0,
             )
 
-            # Keep framed.mp4 link/copy for backward compatibility
-            framed_mp4 = clip_dir / "framed.mp4"
-            if not framed_mp4.is_file():
-                try:
-                    import os
-                    os.link(final_mp4, framed_mp4)
-                except Exception:
-                    import shutil
-                    shutil.copy2(final_mp4, framed_mp4)
+            # 6. Render initial clip.mp4 with captions burned in and audio normalized
+            final_mp4, qa_report = final_render.render_final(
+                clip_dir=clip_dir,
+                fps=30.0,
+                has_captions=True,
+                is_non_final_part=is_non_final_part,
+                dur=dur,
+            )
 
             # Update database status
             with get_conn(ctx.db_path) as conn:
@@ -148,7 +147,7 @@ def run(ctx: JobContext) -> None:
                     status="built" if qa_report.passed else "qa_warning",
                 )
 
-            logger.info("[%s] Successfully built clip %s in single pass (QA passed: %s)", ctx.job_id, clip.id, qa_report.passed)
+            logger.info("[%s] Successfully built clip %s (QA passed: %s)", ctx.job_id, clip.id, qa_report.passed)
 
         except Exception as e:
             logger.error("[%s] Failed building clip %s: %s", ctx.job_id, clip.id, e, exc_info=True)

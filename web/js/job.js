@@ -218,7 +218,7 @@ function renderClipCard(c) {
     <div style="font-weight: 600; font-size: 15px; margin-top: 4px;">${c.hook_text || c.topic || "Clip " + c.id}</div>
     <div style="font-size: 13px; color: var(--muted); display: flex; justify-content: space-between;">
       <span>Source: <a href="${youtubeSourceUrl}" target="_blank" style="color: #5e81ac;">${fmtTime(c.start)} – ${fmtTime(c.end)}</a></span>
-      <span>${Math.round(c.duration)}s</span>
+      <span>${Math.round(c.duration || (c.end - c.start))}s</span>
     </div>
 
     <!-- Badges -->

@@ -41,6 +41,15 @@ def run(ctx: JobContext) -> None:
             words_art = ctx.read_artifact(f"clips/{clip.id}/words.json", WordsArtifact)
             layout_art = ctx.read_artifact(f"clips/{clip.id}/layout.json", LayoutArtifact)
 
+            is_non_final_part = bool(clip.part_index and clip.part_total and clip.part_index < clip.part_total)
+            part_badge = f"PART {clip.part_index}" if (clip.part_index and clip.part_index > 1) else None
+            end_card = f"Part {clip.part_index + 1} is on the channel ▶" if is_non_final_part else None
+            dur = float(clip.duration or (clip.end - clip.start))
+            hook_text = None
+            if getattr(ctx.options, "hook_card", True):
+                hook_events = [e for e in edit_list.events if e.type == "hook_card"] if edit_list else []
+                hook_text = hook_events[0].params.get("text") if hook_events else clip.hook_text
+
             if edit_list and words_art:
                 caption_chunks = captions.chunk_words(words_art.words)
                 captions.write_ass(
@@ -50,6 +59,10 @@ def run(ctx: JobContext) -> None:
                     mask_profanity_flag=getattr(ctx.options, "mask_profanity", True),
                     emphasis_indices=edit_list.caption_emphasis,
                     preset=getattr(ctx.options, "caption_preset", "modern_box"),
+                    hook_card_text=hook_text,
+                    part_badge_text=part_badge,
+                    end_card_text=end_card,
+                    end_card_start_s=dur if is_non_final_part else None,
                 )
 
             # 3. Final re-render with composited fx and mixed SFX
@@ -57,6 +70,8 @@ def run(ctx: JobContext) -> None:
                 clip_dir=clip_dir,
                 fps=30.0,
                 has_captions=True,
+                is_non_final_part=is_non_final_part,
+                dur=dur,
             )
 
             with get_conn(ctx.db_path) as conn:

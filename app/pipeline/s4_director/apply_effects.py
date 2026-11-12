@@ -21,10 +21,10 @@ def render_effects(ctx: JobContext, clip: Clip) -> tuple[Path, Path]:
     video_path is clip.mp4 (or fx.mp4/framed.mp4 fallback).
     """
     clip_dir = paths.clip_dir(ctx.job_id, clip.id)
-    # Prefer single-pass rendered clip.mp4, fallback to framed.mp4
-    video_file = clip_dir / "clip.mp4"
+    # Prefer clean framed.mp4 without captions, fallback to clip.mp4
+    video_file = clip_dir / "framed.mp4"
     if not video_file.is_file():
-        video_file = clip_dir / "framed.mp4"
+        video_file = clip_dir / "clip.mp4"
     if not video_file.is_file():
         raise FileNotFoundError(f"Video file not found for clip {clip.id} in {clip_dir}")
 
