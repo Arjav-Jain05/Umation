@@ -7,7 +7,6 @@
 [![Ollama](https://img.shields.io/badge/Ollama-Local%20LLM-black.svg)](https://ollama.com)
 [![Hardware Acceleration](https://img.shields.io/badge/Render-FFmpeg%20NVENC-success.svg)](https://ffmpeg.org)
 [![Offline](https://img.shields.io/badge/AI%20Runtime-100%25%20Offline-green.svg)](docs/MODELS.md)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Shorts Engine is a local Windows web application (FastAPI and vanilla HTML/CSS/JavaScript running on `127.0.0.1:8000`) that converts long YouTube videos or local video files into upload-ready 9:16 vertical shorts. It includes automated candidate nomination, sentence-boundary protection, face-aware vertical reframing, animated captions, director effects, and thumbnail generation.
 
@@ -414,6 +413,8 @@ For details, consult [docs/SOURCE_POLICY.md](file:///docs/SOURCE_POLICY.md).
 
 ---
 
-## License
+## Copyright
 
-This project is licensed under the [MIT License](LICENSE). Models and third-party libraries integrated with the project retain their respective open-source licenses (Apache-2.0, MIT, and Google Gemma Terms).
+Copyright (c) 2026 Arjav Jain. All rights reserved.
+
+This source code is provided for personal viewing and reference only. No permission is granted to copy, distribute, modify, or create derivative works from this repository without prior written permission. Third-party models and libraries integrated with the project retain their respective original licenses.
