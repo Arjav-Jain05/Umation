@@ -19,7 +19,13 @@ DOWNLOADS = {
             "url": "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
             "dest_dir": MODELS_DIR,
             "min_size_kb": 100,
-        }
+        },
+        {
+            "name": "selfie_segmenter.tflite",
+            "url": "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite",
+            "dest_dir": MODELS_DIR,
+            "min_size_kb": 100,
+        },
     ],
     "fonts": [
         {

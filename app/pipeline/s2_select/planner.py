@@ -42,7 +42,7 @@ def plan_clips(
     source_info: SourceInfo,
     transcript: Transcript,
     scoring_cfg: dict[str, Any],
-    domain: str = "gta6",
+    domain: str = "general",
     min_tier: str = "C",
     quality_threshold: float | None = None,
     gemini_client: Any = None,
@@ -203,10 +203,13 @@ def run(ctx: JobContext) -> None:
     with open(scoring_path, encoding="utf-8") as f:
         scoring_cfg = yaml.safe_load(f) or {}
 
-    # Load GTA 6 glossary terms
+    # Load domain glossary terms
+    domain = getattr(ctx.settings, "project_domain", "general")
     glossary_terms: list[str] = []
-    glossary_path = ctx.settings.project_root / "config" / "glossary_gta6.yaml"
-    if glossary_path.exists() and ctx.settings.project_domain == "gta6":
+    glossary_path = ctx.settings.project_root / "config" / f"glossary_{domain}.yaml"
+    if not glossary_path.exists():
+        glossary_path = ctx.settings.project_root / "config" / "glossary_general.yaml"
+    if glossary_path.exists():
         with open(glossary_path, encoding="utf-8") as f:
             gdata = yaml.safe_load(f) or {}
         glossary_terms = [str(t) for t in gdata.get("terms", [])]

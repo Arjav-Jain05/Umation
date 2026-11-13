@@ -6,330 +6,124 @@
   <title>Shorts Engine - Clip Review & Calibration</title>
   <style>
     :root {
-      --bg: #0b0d11;
-      --card-bg: #14171f;
-      --border: #222734;
-      --accent: #3b82f6;
-      --accent-glow: rgba(59, 130, 246, 0.2);
-      --text: #f3f4f6;
-      --text-muted: #9ca3af;
+      --bg: #0f1319;
+      --card-bg: #181d27;
+      --border: #2e384d;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --primary: #3b82f6;
       --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --purple: #8b5cf6;
     }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: var(--bg); color: var(--text); padding: 24px; min-height: 100vh; }
-    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 24px; }
-    h1 { font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
-    .badge { font-size: 11px; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; font-weight: 600; }
-    .badge-v6 { background: var(--accent); color: white; }
-    .badge-tier { background: #374151; color: #f9fafb; }
-    .badge-pass { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid var(--success); }
-    .badge-fail { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
-    
-    .toolbar { display: flex; gap: 12px; align-items: center; background: var(--card-bg); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 24px; flex-wrap: wrap; }
-    select, input, button { background: #1f2430; color: var(--text); border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; font-size: 14px; }
-    button { cursor: pointer; transition: background 0.15s, border-color 0.15s; font-weight: 600; }
-    button:hover { border-color: var(--accent); }
-    button.btn-primary { background: var(--accent); color: white; border: none; }
-    button.btn-primary:hover { opacity: 0.9; }
-
-    .calibration-box { background: rgba(59, 130, 246, 0.05); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 24px; display: none; }
-    .calibration-box.active { display: block; }
-    .weights-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 12px; }
-    .weight-card { background: #1a1e29; padding: 10px; border-radius: 6px; text-align: center; border: 1px solid #2a3142; }
-    .weight-card .label { font-size: 12px; color: var(--text-muted); }
-    .weight-card .val { font-size: 18px; font-weight: 700; color: var(--accent); margin-top: 4px; }
-    
-    .clips-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
-    .clip-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px; display: grid; grid-template-columns: 320px 1fr 240px; gap: 20px; transition: border-color 0.2s; }
-    .clip-card:hover { border-color: #374151; }
-
-    .media-col { display: flex; flex-direction: column; gap: 10px; }
-    .thumb-preview { width: 100%; aspect-ratio: 9/16; background: #000; border-radius: 8px; object-fit: cover; border: 1px solid var(--border); }
-    .thumb-yt { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 6px; object-fit: cover; border: 1px solid var(--border); }
-
-    .content-col { display: flex; flex-direction: column; gap: 12px; }
-    .clip-header { display: flex; justify-content: space-between; align-items: baseline; }
-    .clip-title { font-size: 18px; font-weight: 700; display: flex; gap: 8px; align-items: center; }
-    .clip-meta { font-size: 13px; color: var(--text-muted); }
-
-    .transcript-box { background: #0e1117; padding: 14px; border-radius: 6px; border: 1px solid #1a202c; font-size: 13.5px; line-height: 1.5; }
-    .transcript-box .ts-header { font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 6px; }
-    .transcript-box .first-sents { color: #d1d5db; }
-    .transcript-box .ellipsis { color: #6b7280; margin: 4px 0; font-weight: 700; }
-    .transcript-box .last-sents { color: #93c5fd; }
-
-    .signals-box { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
-    .sig-pill { font-size: 11px; background: #1f2533; padding: 4px 10px; border-radius: 20px; color: #cbd5e1; border: 1px solid #2e384d; }
-    .sig-pill strong { color: #fff; }
-
-    .action-col { display: flex; flex-direction: column; gap: 14px; border-left: 1px solid var(--border); padding-left: 20px; }
-    .verdicts-panel { background: #0f131a; padding: 12px; border-radius: 6px; border: 1px solid #1c2230; font-size: 12px; line-height: 1.4; }
-    .verdict-row { margin-bottom: 6px; }
-    .verdict-row:last-child { margin-bottom: 0; }
-    .verdict-label { color: var(--text-muted); font-weight: 600; }
-
-    .vote-buttons { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
-    .btn-vote { padding: 10px; border-radius: 6px; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid transparent; }
-    .btn-good { background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3); }
-    .btn-good:hover, .btn-good.active { background: var(--success); color: white; }
-    .btn-bad { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); }
-    .btn-bad:hover, .btn-bad.active { background: var(--warning); color: black; }
-    .btn-broken { background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
-    .btn-broken:hover, .btn-broken.active { background: var(--danger); color: white; }
-
-    #loading { text-align: center; padding: 60px; color: var(--text-muted); font-size: 16px; }
+    body {
+      margin: 0;
+      padding: 24px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    h1 {
+      margin: 0 0 6px 0;
+      font-size: 24px;
+    }
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .nav-link {
+      background: #1f2533;
+      color: #93c5fd;
+      padding: 8px 14px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn:hover {
+      opacity: 0.9;
+    }
+    pre {
+      background: #0b0e14;
+      border: 1px solid var(--border);
+      padding: 14px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 13px;
+    }
   </style>
 </head>
 <body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Shorts Engine - Clip Review & Calibration</h1>
+        <p class="subtitle">Review rated clips and tune scoring weights with active learning</p>
+      </div>
+      <div>
+        <a href="/web/index.html" class="nav-link">&larr; Back to Dashboard</a>
+      </div>
+    </header>
 
-  <header>
-    <h1>
-      <span>Shorts Engine Review</span>
-      <span class="badge badge-v6">Prompt v6 Multi-Model</span>
-    </h1>
-    <div>
-      <a href="/web/index.html" style="color: var(--accent); text-decoration: none; font-size: 14px; margin-right: 16px;">← Back to App</a>
-      <button class="btn-primary" onclick="calibrateModel()">Calibrate Scoring Weights</button>
+    <div class="card">
+      <h2 style="margin-top: 0; font-size: 18px;">Scoring Model Calibration</h2>
+      <p style="color: var(--muted); font-size: 14px;">
+        Train logistic regression ranker on your feedback ratings to optimize weights across hook, payoff, and audio signals.
+      </p>
+      <button id="btn-calibrate" class="btn" onclick="runCalibration()">Calibrate Scoring Weights</button>
+      <div id="calibration-result" style="margin-top: 16px; display: none;">
+        <pre id="calibration-json"></pre>
+      </div>
     </div>
-  </header>
-
-  <div class="toolbar">
-    <label for="jobSelect" style="font-size: 13px; color: var(--text-muted);">Active Job:</label>
-    <select id="jobSelect" onchange="loadJob(this.value)">
-      <option value="">Loading jobs...</option>
-    </select>
-    <button onclick="refreshCurrent()">Refresh</button>
-    <span style="margin-left: auto; font-size: 13px; color: var(--text-muted);" id="statsLabel">0 clips</span>
   </div>
-
-  <div id="calibrationBox" class="calibration-box">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <h3 style="font-size: 15px;">Calibration Update (Logistic Regression)</h3>
-      <span style="font-size: 12px; color: var(--success);" id="calibStatus">Tuned successfully</span>
-    </div>
-    <div class="weights-grid" id="weightsGrid"></div>
-  </div>
-
-  <div id="loading">Loading project clips...</div>
-  <div id="clipsContainer" class="clips-grid" style="display: none;"></div>
 
   <script>
-    let currentJobId = "";
-    let currentClips = [];
-    let ratingsCache = {};
-
-    async function init() {
-      // 1. Check URL param or list jobs
-      const urlParams = new URLSearchParams(window.location.search);
-      const paramJob = urlParams.get('job_id') || urlParams.get('job');
-
+    async function runCalibration() {
+      const btn = document.getElementById("btn-calibrate");
+      const resultBox = document.getElementById("calibration-result");
+      const jsonBox = document.getElementById("calibration-json");
+      btn.disabled = true;
+      btn.innerText = "Calibrating...";
       try {
-        const resp = await fetch('/api/jobs');
-        if (resp.ok) {
-          const jobs = await resp.json();
-          const select = document.getElementById('jobSelect');
-          select.innerHTML = '';
-          jobs.forEach(j => {
-            const opt = document.createElement('option');
-            opt.value = j.id;
-            opt.textContent = `${j.id} - ${j.video_title || j.video_id || 'Job'} (${j.status})`;
-            select.appendChild(opt);
-          });
-
-          if (paramJob && jobs.some(j => j.id === paramJob)) {
-            select.value = paramJob;
-          } else if (jobs.length > 0) {
-            select.value = jobs[0].id;
-          }
-          currentJobId = select.value;
-        }
-      } catch (e) {
-        console.warn("Could not list jobs via API:", e);
-        // Fallback default
-        currentJobId = paramJob || "20261111-165810-Pv0iVoSZzN8";
-        document.getElementById('jobSelect').innerHTML = `<option value="${currentJobId}">${currentJobId}</option>`;
-      }
-
-      if (currentJobId) {
-        loadJob(currentJobId);
-      }
-    }
-
-    async function loadJob(jobId) {
-      currentJobId = jobId;
-      document.getElementById('loading').style.display = 'block';
-      document.getElementById('clipsContainer').style.display = 'none';
-
-      try {
-        const resp = await fetch(`/api/jobs/${jobId}/results`);
-        if (!resp.ok) throw new Error("Job results not found");
-        const data = await resp.json();
-        currentClips = data.clips || [];
-        renderClips(currentClips);
+        const res = await fetch("/api/system/calibrate", { method: "POST" });
+        const data = await res.json();
+        resultBox.style.display = "block";
+        jsonBox.innerText = JSON.stringify(data, null, 2);
       } catch (err) {
-        console.error("Error loading job:", err);
-        document.getElementById('loading').textContent = `Failed to load clips for ${jobId}. Error: ${err.message}`;
+        resultBox.style.display = "block";
+        jsonBox.innerText = "Error calibrating: " + err;
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "Calibrate Scoring Weights";
       }
     }
-
-    function renderClips(clips) {
-      const container = document.getElementById('clipsContainer');
-      container.innerHTML = '';
-      document.getElementById('loading').style.display = 'none';
-      container.style.display = 'grid';
-      document.getElementById('statsLabel').textContent = `${clips.length} clips evaluated`;
-
-      clips.forEach(c => {
-        const card = document.createElement('div');
-        card.className = 'clip-card';
-        card.id = `card-${c.id}`;
-
-        // Sentences
-        const sents = c.sentences || [];
-        const first2 = sents.slice(0, 2).map(s => `[${s.id}] ${s.text}`).join(' ');
-        const last2 = sents.slice(-2).map(s => `[${s.id}] ${s.text}`).join(' ');
-
-        // Committee & OCR
-        const committee = c.reasons?.committee || {};
-        const j1 = committee.judge_1 || {};
-        const j2 = committee.judge_2 || {};
-        const endingType = c.reasons?.ending_type || j1.ending_type || "resolution";
-        const ocrStatus = c.thumbnail?.ocr_160px_readable !== false ? "PASS" : "FAIL";
-
-        // Images
-        const coverUrl = `/api/clips/${currentJobId}/${c.id}/thumbnail?aspect=9x16`;
-        const ytThumbUrl = `/api/clips/${currentJobId}/${c.id}/thumbnail?aspect=16x9`;
-
-        card.innerHTML = `
-          <div class="media-col">
-            <img class="thumb-preview" src="${coverUrl}" onerror="this.style.display='none'" alt="9:16 Thumbnail">
-            <img class="thumb-yt" src="${ytThumbUrl}" onerror="this.style.display='none'" alt="16:9 Thumbnail">
-          </div>
-          <div class="content-col">
-            <div class="clip-header">
-              <div class="clip-title">
-                <span>${c.id}</span>
-                <span class="badge badge-tier">${c.tier || 'B'}</span>
-                <span style="font-size: 14px; font-weight: 500; color: var(--text-muted);">${c.duration.toFixed(1)}s</span>
-              </div>
-              <div class="clip-meta">Score: <strong>${Math.round(c.final_score)}</strong>/100</div>
-            </div>
-
-            <div style="font-size: 15px; font-weight: 600; color: #fff;">
-              "${c.hook_text || c.title || 'Clip Moment'}"
-            </div>
-
-            <div class="transcript-box">
-              <div class="ts-header">Opening Thought (First 2 sentences):</div>
-              <div class="first-sents">${first2 || '(No sentence preview)'}</div>
-              <div class="ellipsis">... [midsection] ...</div>
-              <div class="ts-header" style="margin-top: 6px;">Closing Thought (Last 2 sentences):</div>
-              <div class="last-sents">${last2 || '(No sentence preview)'}</div>
-            </div>
-
-            <div class="signals-box">
-              <div class="sig-pill">Topic: <strong>${c.topic || 'General'}</strong></div>
-              <div class="sig-pill">Speech: <strong>${(c.speech_ratio * 100).toFixed(0)}%</strong></div>
-              <div class="sig-pill">Loudness: <strong>${(c.audio || 50).toFixed(0)}</strong></div>
-              ${c.part_index ? `<div class="sig-pill" style="border-color: var(--purple); color: var(--purple);">Part <strong>${c.part_index}/${c.part_total}</strong></div>` : ''}
-              <div class="sig-pill">160px OCR: <span class="badge ${ocrStatus === 'PASS' ? 'badge-pass' : 'badge-fail'}">${ocrStatus}</span></div>
-            </div>
-          </div>
-
-          <div class="action-col">
-            <div class="verdicts-panel">
-              <div class="verdict-row"><span class="verdict-label">Ending Beat:</span> <strong>${endingType}</strong></div>
-              <div class="verdict-row"><span class="verdict-label">Judge 1 (Qwen):</span> <span style="color: ${j1.verdict === 'pass' ? 'var(--success)' : 'var(--warning)'}; font-weight: 600;">${j1.verdict || 'pass'}</span></div>
-              <div class="verdict-row"><span class="verdict-label">Judge 2 (Gemma):</span> <span style="color: ${j2.verdict === 'pass' ? 'var(--success)' : 'var(--warning)'}; font-weight: 600;">${j2.verdict || 'pass'}</span></div>
-            </div>
-
-            <div class="vote-buttons">
-              <button class="btn-vote btn-good" onclick="voteClip('${c.id}', 1)">👍 Good (Keep)</button>
-              <button class="btn-vote btn-bad" onclick="voteClip('${c.id}', 0)">👎 Bad (Filter)</button>
-              <button class="btn-vote btn-broken" onclick="voteClip('${c.id}', -1)">⚠️ Broken (Cut/Bug)</button>
-            </div>
-          </div>
-        `;
-        container.appendChild(card);
-      });
-    }
-
-    async function voteClip(clipId, rating) {
-      ratingsCache[clipId] = rating;
-      const card = document.getElementById(`card-${clipId}`);
-      if (card) {
-        card.querySelectorAll('.btn-vote').forEach(b => b.classList.remove('active'));
-        if (rating === 1) card.querySelector('.btn-good')?.classList.add('active');
-        if (rating === 0) card.querySelector('.btn-bad')?.classList.add('active');
-        if (rating === -1) card.querySelector('.btn-broken')?.classList.add('active');
-      }
-
-      try {
-        await fetch(`/api/clips/${currentJobId}/${clipId}/rate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rating: rating })
-        });
-      } catch (e) {
-        console.warn("Could not log rating to API:", e);
-      }
-    }
-
-    async function calibrateModel() {
-      const box = document.getElementById('calibrationBox');
-      const grid = document.getElementById('weightsGrid');
-      const status = document.getElementById('calibStatus');
-
-      box.classList.add('active');
-      status.textContent = 'Fitting logistic regression model...';
-
-      try {
-        const resp = await fetch('/api/system/calibrate', { method: 'POST' });
-        let data = {};
-        if (resp.ok) {
-          data = await resp.json();
-        } else {
-          // Synthetic calibration display from feedback ratings
-          data = {
-            weights_before: { hook: 0.25, payoff: 0.20, audio: 0.15, heatmap: 0.20, speech: 0.20 },
-            weights_after: { hook: 0.28, payoff: 0.24, audio: 0.14, heatmap: 0.18, speech: 0.16 },
-            samples: Object.keys(ratingsCache).length || 14
-          };
-        }
-
-        status.textContent = `Tuned on ${data.samples || 10} human feedback labels`;
-        grid.innerHTML = '';
-        const keys = Object.keys(data.weights_after || {});
-        keys.forEach(k => {
-          const b = (data.weights_before || {})[k] || 0.2;
-          const a = data.weights_after[k];
-          const diff = a - b;
-          const diffStr = diff >= 0 ? `+${(diff * 100).toFixed(1)}%` : `${(diff * 100).toFixed(1)}%`;
-          const col = diff >= 0 ? 'var(--success)' : 'var(--danger)';
-
-          const div = document.createElement('div');
-          div.className = 'weight-card';
-          div.innerHTML = `
-            <div class="label">${k.toUpperCase()}</div>
-            <div class="val">${(a * 100).toFixed(1)}%</div>
-            <div style="font-size: 11px; color: ${col}; margin-top: 2px;">${diffStr}</div>
-          `;
-          grid.appendChild(div);
-        });
-      } catch (err) {
-        status.textContent = `Calibration failed: ${err.message}`;
-      }
-    }
-
-    function refreshCurrent() {
-      if (currentJobId) loadJob(currentJobId);
-    }
-
-    window.onload = init;
   </script>
 </body>
 </html>

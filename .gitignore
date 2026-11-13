@@ -6,6 +6,8 @@
 data/
 output/
 Clips/
+weights/
+feedback/
 *.zip
 
 # Python

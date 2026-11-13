@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 from rapidfuzz import fuzz
 
+from app.core import paths
 from config.settings import get_settings
 
 logger = logging.getLogger("app.pipeline.sensors.topic_segmenter")
@@ -26,7 +27,7 @@ def _get_bge_resources() -> tuple[Any, Any]:
 
     _BGE_LOAD_ATTEMPTED = True
     settings = get_settings()
-    weights_dir = getattr(settings, "weights_dir", Path("D:/Open_Source_Weights"))
+    weights_dir = getattr(settings, "weights_dir", paths.project_root() / "weights")
     bge_root = Path(weights_dir) / "huggingface" / "models--BAAI--bge-small-en-v1.5" / "snapshots"
 
     if not bge_root.is_dir():

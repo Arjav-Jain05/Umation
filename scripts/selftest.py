@@ -38,7 +38,8 @@ except Exception:
 WORKSPACE_ROOT = Path(__file__).resolve().parent.parent
 if str(WORKSPACE_ROOT) not in sys.path:
     sys.path.insert(0, str(WORKSPACE_ROOT))
-WEIGHTS_DIR = Path(os.environ.get("WEIGHTS_DIR", "D:\\Open_Source_Weights"))
+_raw_weights = os.environ.get("WEIGHTS_DIR", "./weights")
+WEIGHTS_DIR = Path(_raw_weights) if Path(_raw_weights).is_absolute() else (WORKSPACE_ROOT / _raw_weights).resolve()
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "127.0.0.1:11434")
 
 

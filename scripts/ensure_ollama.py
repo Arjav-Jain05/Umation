@@ -18,7 +18,8 @@ from pathlib import Path
 
 logger = logging.getLogger("scripts.ensure_ollama")
 
-DEFAULT_WEIGHTS_DIR = Path("D:/Open_Source_Weights/ollama")
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_WEIGHTS_DIR = ROOT_DIR / "weights" / "ollama"
 DEFAULT_HOST = "127.0.0.1:11434"
 
 
@@ -87,7 +88,8 @@ def ensure_ollama(
                     elif line.startswith("OLLAMA_MODELS="):
                         val = line.split("=", 1)[1].strip().strip('"').strip("'")
                         if val:
-                            models_dir = Path(val)
+                            p = Path(val)
+                            models_dir = p if p.is_absolute() else (root_dir / p).resolve()
         except Exception as exc:
             if verbose:
                 print(f"[WARN] Could not parse .env: {exc}")

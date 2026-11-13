@@ -89,7 +89,7 @@ def validate_and_fix_metadata(
     raw: RawMetadataOut,
     clip: Clip,
     source_info: SourceInfo,
-    domain: str = "gta6",
+    domain: str = "general",
 ) -> Metadata:
     """Validate titles, hashtags, length constraints, and assemble YouTube/Instagram descriptions."""
     # 1. Validate & fix titles (exactly 3 options)
@@ -107,10 +107,11 @@ def validate_and_fix_metadata(
             clean_titles.append(TitleOption(style=opt.style, text=c_text))
 
     # Fallback titles if less than 3
+    topic_label = clip.topic or "Moment"
     fallback_titles = [
-        TitleOption(style="curiosity", text=_clean_title(clip.hook_text or f"{clip.topic or 'GTA 6'} - What Happened") + part_suffix),
-        TitleOption(style="direct", text=_clean_title(f"GTA 6 {clip.topic or 'Highlight'}") + part_suffix),
-        TitleOption(style="bold", text=_clean_title(f"The Craziest GTA 6 {clip.topic or 'Moment'}") + part_suffix),
+        TitleOption(style="curiosity", text=_clean_title(clip.hook_text or f"{topic_label.title()} - What Happened") + part_suffix),
+        TitleOption(style="direct", text=_clean_title(f"{topic_label.title()} Highlight") + part_suffix),
+        TitleOption(style="bold", text=_clean_title(f"The Craziest {topic_label.title()}") + part_suffix),
     ]
     for fb in fallback_titles:
         if len(clean_titles) >= 3:
@@ -125,7 +126,7 @@ def validate_and_fix_metadata(
     if len(hook_line) > 110:
         hook_line = hook_line[:110].rsplit(" ", 1)[0]
 
-    context = (raw.context or "An incredible gameplay sequence that fans need to see.").strip()
+    context = (raw.context or "An incredible sequence that viewers need to see.").strip()
 
     # 3. Hashtags (4-5 items, clean #[a-z0-9_]+)
     clean_hashtags: list[str] = []
@@ -144,6 +145,8 @@ def validate_and_fix_metadata(
         clean_hashtags.insert(0, "#shorts")
     if domain == "gta6" and "#gta6" not in seen_tags:
         clean_hashtags.append("#gta6")
+    elif "#viral" not in seen_tags:
+        clean_hashtags.append("#viral")
     clean_hashtags = clean_hashtags[:5]
 
     # 4. Keywords & YouTube tags (<= 450 chars total)
@@ -158,6 +161,11 @@ def validate_and_fix_metadata(
     # Add domain defaults if needed
     if domain == "gta6":
         for default_kw in ["GTA 6", "GTA VI", "Grand Theft Auto 6", "Vice City"]:
+            if default_kw.lower() not in seen_kw:
+                clean_keywords.append(default_kw)
+                seen_kw.add(default_kw.lower())
+    else:
+        for default_kw in ["shorts", "viral", "highlights", "trending"]:
             if default_kw.lower() not in seen_kw:
                 clean_keywords.append(default_kw)
                 seen_kw.add(default_kw.lower())
@@ -213,21 +221,21 @@ def validate_and_fix_metadata(
     )
 
 
-def fallback_metadata(clip: Clip, source_info: SourceInfo, domain: str = "gta6") -> Metadata:
+def fallback_metadata(clip: Clip, source_info: SourceInfo, domain: str = "general") -> Metadata:
     """Template-based metadata fallback when Gemini fails validation or quota."""
     topic = clip.topic or "Highlight"
     hook = clip.hook_text or f"{topic.title()} - what happened"
     raw = RawMetadataOut(
         titles=[
             TitleOption(style="curiosity", text=hook),
-            TitleOption(style="direct", text=f"GTA 6 {topic.title()}"),
-            TitleOption(style="bold", text=f"Insane GTA 6 {topic.title()} Revealed"),
+            TitleOption(style="direct", text=f"{topic.title()} Highlight"),
+            TitleOption(style="bold", text=f"Unbelievable {topic.title()} Revealed"),
         ],
         hook_line=hook[:100],
-        context=f"A closer look at {topic} from the latest footage.",
-        hashtags=["#shorts", "#gta6", "#gaming", "#gtavicecity"],
-        keywords=["GTA 6", "GTA VI", "Grand Theft Auto 6", "Vice City", topic],
-        instagram_caption="Crazy detail in GTA 6! Drop your thoughts below. #shorts #gta6",
+        context=f"A closer look at {topic} from the latest video.",
+        hashtags=["#shorts", "#viral", "#trending", f"#{domain}" if domain != "general" else "#highlight"],
+        keywords=["shorts", "viral", "clip", "highlight", topic],
+        instagram_caption="Crazy moment! Drop your thoughts below. #shorts #viral",
         pinned_comment="What do you think of this moment?",
     )
     return validate_and_fix_metadata(raw, clip=clip, source_info=source_info, domain=domain)
@@ -237,15 +245,20 @@ def generate_metadata(
     ctx: JobContext,
     clip: Clip,
     source_info: SourceInfo,
-    domain_description: str = "GTA 6 & Gaming Entertainment",
+    domain_description: str | None = None,
 ) -> Metadata:
     """Generate high-performing titles, SEO, and copy sheets via Gemini or fallback."""
+    settings = getattr(ctx, "settings", None)
+    domain = getattr(settings, "project_domain", "general") if settings else "general"
+    if domain_description is None:
+        domain_description = f"{domain.title()} & Video Entertainment" if domain != "general" else "Viral Short-Form Video & Entertainment"
+
     prompt_file = paths.prompts_dir() / "metadata_text.md"
     prompt_template = prompt_file.read_text(encoding="utf-8")
 
     part_info = f"Part {clip.part_index}/{clip.part_total}" if clip.part_index else "Standalone"
     entities = getattr(clip, "entities", None)
-    entities_str = ", ".join(entities) if entities else "GTA 6"
+    entities_str = ", ".join(entities) if entities else domain
 
     # Read transcript tidy for the clip segment
     clip_text = clip.hook_text or ""
@@ -258,7 +271,7 @@ def generate_metadata(
 
     prompt = (
         prompt_template.replace("{{domain_description}}", domain_description)
-        .replace("{{topic}}", clip.topic or "GTA 6 highlight")
+        .replace("{{topic}}", clip.topic or "Viral highlight")
         .replace("{{entities}}", entities_str)
         .replace("{{part_info}}", part_info)
         .replace("{{clip_text}}", clip_text[:800])
@@ -271,7 +284,7 @@ def generate_metadata(
             system_instruction="You write viral YouTube Shorts metadata.",
             task="metadata",
         )
-        return validate_and_fix_metadata(raw_out, clip=clip, source_info=source_info, domain="gta6")
+        return validate_and_fix_metadata(raw_out, clip=clip, source_info=source_info, domain=domain)
     except Exception as e:
         logger.warning("[%s] Gemini metadata generation failed: %s; using template fallback", ctx.job_id, e)
-        return fallback_metadata(clip=clip, source_info=source_info, domain="gta6")
+        return fallback_metadata(clip=clip, source_info=source_info, domain=domain)

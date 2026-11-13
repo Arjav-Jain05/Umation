@@ -12,7 +12,7 @@ def blend(
     judged: JudgedItem,
     signals: Signals,
     scoring_cfg: dict[str, Any],
-    domain: str = "gta6",
+    domain: str = "general",
     heat_coarse_override: bool = False,
 ) -> float:
     """Calculate composite final viral potential score (0-100) per spec 04 section 7."""
@@ -42,7 +42,7 @@ def blend(
         final, _, _ = calculate_fusion_score(
             signals_input,
             penalties=scoring_cfg.get("penalties"),
-            topical_hits=signals.topical_hits if domain == "gta6" else 0,
+            topical_hits=signals.topical_hits if signals.topical_hits else 0,
             needs_context=judged.needs_context,
             context_fix=bool(judged.context_fix),
             speech_ratio=signals.speech_ratio,
@@ -73,8 +73,8 @@ def blend(
     heat_val = signals.heat if signals.heat is not None else 0.0
     final = (w_llm * judged.llm_score) + (w_heat * heat_val) + (w_audio * signals.audio)
 
-    # Topical boost (up to 5 points) for GTA 6
-    if domain == "gta6":
+    # Topical boost (up to 5 points)
+    if getattr(signals, "topical_hits", 0) > 0:
         final += min(5.0, 2.5 * signals.topical_hits)
 
     # Penalties

@@ -52,7 +52,8 @@ def _get_face_detector() -> Any:
     """Initialize MediaPipe BlazeFace short range detector."""
     model_path = paths.models_dir() / "blaze_face_short_range.tflite"
     if not model_path.is_file():
-        model_path = Path("D:/Open_Source_Weights/models/blaze_face_short_range.tflite")
+        from config.settings import get_settings
+        model_path = Path(get_settings().weights_dir) / "models" / "blaze_face_short_range.tflite"
     options = mp.tasks.vision.FaceDetectorOptions(
         base_options=mp.tasks.BaseOptions(model_asset_path=str(model_path)),
         min_detection_confidence=0.35,
@@ -64,7 +65,8 @@ def _get_image_segmenter() -> Any:
     """Initialize MediaPipe ImageSegmenter with confidence masks."""
     model_path = paths.models_dir() / "selfie_segmenter.tflite"
     if not model_path.is_file():
-        model_path = Path("D:/Open_Source_Weights/models/selfie_segmenter.tflite")
+        from config.settings import get_settings
+        model_path = Path(get_settings().weights_dir) / "models" / "selfie_segmenter.tflite"
     options = mp.tasks.vision.ImageSegmenterOptions(
         base_options=mp.tasks.BaseOptions(model_asset_path=str(model_path)),
         output_confidence_masks=True,

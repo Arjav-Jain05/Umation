@@ -23,7 +23,7 @@ class Settings(BaseModel):
 
     # Local LLM / Ollama configuration
     ollama_host: str = Field(default="127.0.0.1:11434")
-    weights_dir: Path = Field(default=Path("D:\\Open_Source_Weights"))
+    weights_dir: Path = Field(default_factory=lambda: PROJECT_ROOT / "weights")
     llm_proposer_model_1: str = Field(default="qwen3.5:9b")
     llm_proposer_model_2: str = Field(default="gemma4:e4b")
     llm_critic_model: str = Field(default="gemma4:e4b")
@@ -44,7 +44,7 @@ class Settings(BaseModel):
     layer_thumbnails_enabled: bool = Field(default=True)
 
     # Storage & Networking
-    project_domain: str = Field(default="gta6")
+    project_domain: str = Field(default="general")
     data_dir: Path = Field(default=PROJECT_ROOT / "data")
     output_dir: Path = Field(default=PROJECT_ROOT / "output")
 
@@ -114,7 +114,7 @@ class Settings(BaseModel):
 
         return cls(
             ollama_host=os.getenv("OLLAMA_HOST", "127.0.0.1:11434").strip(),
-            weights_dir=Path(os.getenv("WEIGHTS_DIR", "D:\\Open_Source_Weights")),
+            weights_dir=Path(os.getenv("WEIGHTS_DIR", str(PROJECT_ROOT / "weights"))),
             llm_proposer_model_1=os.getenv("LLM_PROPOSER_MODEL_1", "qwen3.5:9b").strip(),
             llm_proposer_model_2=os.getenv("LLM_PROPOSER_MODEL_2", "gemma4:e4b").strip(),
             llm_critic_model=os.getenv("LLM_CRITIC_MODEL", "gemma4:e4b").strip(),
@@ -129,7 +129,7 @@ class Settings(BaseModel):
             layer_sensors_enabled=get_bool("LAYER_SENSORS_ENABLED", True),
             layer_visual_enabled=get_bool("LAYER_VISUAL_ENABLED", True),
             layer_thumbnails_enabled=get_bool("LAYER_THUMBNAILS_ENABLED", True),
-            project_domain=os.getenv("PROJECT_DOMAIN", "gta6").strip(),
+            project_domain=os.getenv("PROJECT_DOMAIN", "general").strip(),
             data_dir=Path(os.getenv("DATA_DIR", "./data")),
             output_dir=Path(os.getenv("OUTPUT_DIR", "./output")),
             max_source_height=get_int("MAX_SOURCE_HEIGHT", 1080),

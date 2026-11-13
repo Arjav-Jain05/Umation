@@ -21,7 +21,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-WEIGHTS_DIR = Path(os.environ.get("WEIGHTS_DIR", "D:\\Open_Source_Weights"))
+ROOT_DIR = Path(__file__).resolve().parent.parent
+_raw_weights = os.environ.get("WEIGHTS_DIR", "./weights")
+WEIGHTS_DIR = Path(_raw_weights) if Path(_raw_weights).is_absolute() else (ROOT_DIR / _raw_weights).resolve()
 MANIFEST_FILE = WEIGHTS_DIR / "manifest.json"
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "127.0.0.1:11434")
 
@@ -91,12 +93,32 @@ def update_manifest_entry(name: str, layer: int, local_path: str, size_bytes: in
     save_manifest(manifest)
 
 
+def find_ollama_binary() -> Path | None:
+    """Locate the ollama.exe binary on the system."""
+    which_path = shutil.which("ollama")
+    if which_path:
+        return Path(which_path)
+    local_app = os.environ.get("LOCALAPPDATA")
+    if local_app:
+        cand = Path(local_app) / "Programs" / "Ollama" / "ollama.exe"
+        if cand.exists():
+            return cand
+    for pf in ["ProgramFiles", "ProgramFiles(x86)"]:
+        base = os.environ.get(pf)
+        if base:
+            cand = Path(base) / "Ollama" / "ollama.exe"
+            if cand.exists():
+                return cand
+    return None
+
+
 def check_disk_space(required_gb: float = 20.0) -> bool:
     try:
+        WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
         usage = shutil.disk_usage(WEIGHTS_DIR)
         free_gb = usage.free / (1024**3)
         if free_gb < required_gb:
-            print(f"[ERROR] Insufficient disk space on {WEIGHTS_DIR.drive}: {free_gb:.1f} GB free, need {required_gb:.1f} GB.")
+            print(f"[ERROR] Insufficient disk space on {WEIGHTS_DIR.drive or WEIGHTS_DIR}: {free_gb:.1f} GB free, need {required_gb:.1f} GB.")
             return False
         return True
     except Exception as exc:
@@ -105,10 +127,17 @@ def check_disk_space(required_gb: float = 20.0) -> bool:
 
 
 def download_whisper_model(model_name: str = "large-v3-turbo") -> bool:
-    """Download faster-whisper model into D:\\Open_Source_Weights\\whisper."""
+    """Download faster-whisper model into weights/whisper."""
     whisper_dir = WEIGHTS_DIR / "whisper"
     whisper_dir.mkdir(parents=True, exist_ok=True)
     print(f"\n--- [L0] Checking/Downloading faster-whisper model '{model_name}' ---")
+
+    # Check if already present on disk
+    existing = list(whisper_dir.glob("**/model.bin"))
+    if existing and any(c.stat().st_size > 500_000_000 for c in existing):
+        total_size = sum(f.stat().st_size for f in whisper_dir.rglob("*") if f.is_file())
+        print(f"[PASS] faster-whisper '{model_name}' is already present. Size: {total_size / (1024**2):.1f} MB.")
+        return True
 
     try:
         from faster_whisper import WhisperModel
@@ -139,16 +168,16 @@ def pull_ollama_model(model_name: str, layer: int) -> bool:
     """Pull Ollama model via Ollama CLI or HTTP API."""
     print(f"\n--- [L{layer}] Checking/Pulling Ollama model '{model_name}' ---")
 
-    # Check if already present
+    # 1. Check if already present via HTTP API
     host = OLLAMA_HOST if OLLAMA_HOST.startswith("http") else f"http://{OLLAMA_HOST}"
     try:
         req = urllib.request.Request(f"{host}/api/tags")
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=3) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             installed = [m.get("name") for m in data.get("models", [])]
             for m in installed:
                 if m == model_name or m.startswith(model_name + ":") or (":" in model_name and m == model_name):
-                    print(f"[PASS] Model '{model_name}' is already installed in Ollama.")
+                    print(f"[PASS] Model '{model_name}' is already active in Ollama.")
                     update_manifest_entry(
                         name=f"ollama-{model_name}",
                         layer=layer,
@@ -158,14 +187,25 @@ def pull_ollama_model(model_name: str, layer: int) -> bool:
                     )
                     return True
     except Exception as exc:
-        print(f"[WARN] Could not query Ollama tags: {exc}")
+        print(f"[INFO] Ollama HTTP tags check: {exc}")
 
-    # Pull via CLI
-    print(f"Pulling '{model_name}' via ollama pull...")
+    # 2. Check directly on disk in Ollama models directory
+    ollama_dir = WEIGHTS_DIR / "ollama"
+    if ollama_dir.exists():
+        manifests = list((ollama_dir / "manifests").glob("**/*"))
+        base_name = model_name.split(":")[0].lower()
+        if any(base_name in str(p).lower() for p in manifests):
+            print(f"[PASS] Model '{model_name}' found in local Ollama storage ({ollama_dir}).")
+            return True
+
+    # 3. Pull via CLI (using discovered binary path)
+    binary = find_ollama_binary()
+    cmd = [str(binary) if binary else "ollama", "pull", model_name]
+    print(f"Pulling '{model_name}' via: {' '.join(cmd)}...")
     t0 = time.time()
     try:
         proc = subprocess.run(
-            ["ollama", "pull", model_name],
+            cmd,
             check=False,
             text=True,
             timeout=1800,  # 30 min max for large models
@@ -182,11 +222,28 @@ def pull_ollama_model(model_name: str, layer: int) -> bool:
             )
             return True
         else:
-            print(f"[FAIL] ollama pull '{model_name}' exited with code {proc.returncode}")
-            return False
+            print(f"[WARN] ollama pull exited with code {proc.returncode}")
     except Exception as exc:
-        print(f"[FAIL] Error pulling '{model_name}': {exc}")
-        return False
+        print(f"[WARN] CLI pull failed ({exc}), attempting HTTP API pull...")
+
+    # 4. Fallback: Pull via Ollama HTTP API endpoint
+    try:
+        pull_url = f"{host}/api/pull"
+        payload = json.dumps({"name": model_name, "stream": False}).encode("utf-8")
+        req = urllib.request.Request(
+            pull_url,
+            data=payload,
+            headers={"Content-Type": "application/json", "User-Agent": "shorts-engine"},
+        )
+        with urllib.request.urlopen(req, timeout=1800) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data.get("status") == "success":
+                print(f"[PASS] Successfully pulled '{model_name}' via Ollama HTTP API.")
+                return True
+    except Exception as api_exc:
+        print(f"[FAIL] Could not pull '{model_name}' via HTTP API: {api_exc}")
+
+    return False
 
 
 def download_hf_model(repo_id: str, layer: int, subfolder: str = "") -> bool:
@@ -221,35 +278,31 @@ def download_hf_model(repo_id: str, layer: int, subfolder: str = "") -> bool:
 
 def run_core_downloads() -> bool:
     print("======================================================================")
-    print("DOWNLOADING CORE WEIGHTS (L0 Whisper + L2 Ollama LLMs)")
+    print("DOWNLOADING CORE WEIGHTS (L0 Whisper + L2 Ollama LLM)")
     print("======================================================================")
-    if not check_disk_space(20.0):
+    if not check_disk_space(15.0):
         return False
 
     success = True
-    # L0: Whisper
+    # L0: Whisper (large-v3-turbo)
     success = download_whisper_model("large-v3-turbo") and success
 
-    # L2: Primary Proposer
+    # L2: Primary Proposer & Core Local LLM (Qwen 3.5 9B)
     success = pull_ollama_model("qwen3.5:9b", layer=2) and success
-
-    # L2: Secondary Proposer (gemma4:e4b or alternative)
-    # Check if gemma4:e4b is pullable; if not, fall back to gemma2:9b or qwen2.5:7b
-    print("\nAttempting to pull secondary proposer 'gemma4:e4b'...")
-    gemma_ok = pull_ollama_model("gemma4:e4b", layer=2)
-    if not gemma_ok:
-        print("[NOTICE] 'gemma4:e4b' tag not found on Ollama library. Testing fallback 'gemma2:9b'...")
-        gemma_ok = pull_ollama_model("gemma2:9b", layer=2)
-        if not gemma_ok:
-            print("[NOTICE] Testing fallback 'qwen2.5:7b'...")
-            gemma_ok = pull_ollama_model("qwen2.5:7b", layer=2)
-    success = gemma_ok and success
 
     return success
 
 
 def run_all_downloads() -> bool:
     core_ok = run_core_downloads()
+
+    print("\n======================================================================")
+    print("DOWNLOADING AUXILIARY MODELS (L2 Secondary, L1 Sensors, L5 Visual)")
+    print("======================================================================")
+
+    # L2: Optional Secondary LLM Proposer
+    print("\nChecking optional secondary proposer (gemma2:9b)...")
+    pull_ollama_model("gemma2:9b", layer=2)
 
     print("\n======================================================================")
     print("DOWNLOADING AUXILIARY MODELS (L1 Sensors, L5 Visual, L9 Thumbnails)")

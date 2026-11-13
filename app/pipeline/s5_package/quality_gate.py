@@ -218,7 +218,8 @@ def evaluate_thumbnail(
         if not subj_found:
             detector_model = paths.models_dir() / "blaze_face_short_range.tflite"
             if not detector_model.is_file():
-                detector_model = Path("D:/Open_Source_Weights/models/blaze_face_short_range.tflite")
+                from config.settings import get_settings
+                detector_model = Path(get_settings().weights_dir) / "models" / "blaze_face_short_range.tflite"
             if detector_model.is_file():
                 try:
                     import mediapipe as mp
@@ -241,7 +242,8 @@ def evaluate_thumbnail(
         if not subj_found:
             seg_model = paths.models_dir() / "selfie_segmenter.tflite"
             if not seg_model.is_file():
-                seg_model = Path("D:/Open_Source_Weights/models/selfie_segmenter.tflite")
+                from config.settings import get_settings
+                seg_model = Path(get_settings().weights_dir) / "models" / "selfie_segmenter.tflite"
             if seg_model.is_file():
                 try:
                     import mediapipe as mp

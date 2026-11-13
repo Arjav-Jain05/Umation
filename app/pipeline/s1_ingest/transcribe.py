@@ -154,22 +154,24 @@ def run(ctx: JobContext) -> None:
     chunks = split_audio_chunks(audio_path, ctx.work_dir)
     total_audio_s = sum(ch.duration_s for ch in chunks)
 
-    # Setup initial domain prompt for GTA 6
+    # Setup initial domain prompt
     initial_prompt: str | None = None
-    if ctx.settings.project_domain == "gta6":
-        glossary_path = ctx.settings.project_root / "config" / "glossary_gta6.yaml"
-        if glossary_path.exists():
-            import yaml
+    domain = getattr(ctx.settings, "project_domain", "general")
+    glossary_path = ctx.settings.project_root / "config" / f"glossary_{domain}.yaml"
+    if not glossary_path.exists():
+        glossary_path = ctx.settings.project_root / "config" / "glossary_general.yaml"
+    if glossary_path.exists():
+        import yaml
 
-            try:
-                with open(glossary_path, encoding="utf-8") as f:
-                    cfg = yaml.safe_load(f) or {}
-                terms = cfg.get("terms", [])
-                if terms:
-                    prompt_str = ", ".join(terms)
-                    initial_prompt = prompt_str[:200]
-            except Exception as e:
-                logger.warning("Could not load glossary prompt: %s", e)
+        try:
+            with open(glossary_path, encoding="utf-8") as f:
+                cfg = yaml.safe_load(f) or {}
+            terms = cfg.get("terms", [])
+            if terms:
+                prompt_str = ", ".join(terms)
+                initial_prompt = prompt_str[:200]
+        except Exception as e:
+            logger.warning("Could not load glossary prompt: %s", e)
 
     # Setup faster-whisper model
     model = None
@@ -202,11 +204,25 @@ def run(ctx: JobContext) -> None:
             ctx.settings.whisper_device,
             ctx.settings.whisper_compute,
         )
-        model = WhisperModel(
-            model_target,
-            device=ctx.settings.whisper_device,
-            compute_type=ctx.settings.whisper_compute,
-        )
+        try:
+            model = WhisperModel(
+                model_target,
+                device=ctx.settings.whisper_device,
+                compute_type=ctx.settings.whisper_compute,
+            )
+        except Exception as cuda_err:
+            if ctx.settings.whisper_device == "cuda":
+                logger.warning(
+                    "Failed to initialize WhisperModel on CUDA (%s); falling back to CPU (int8)...",
+                    cuda_err,
+                )
+                model = WhisperModel(
+                    model_target,
+                    device="cpu",
+                    compute_type="int8",
+                )
+            else:
+                raise cuda_err
     except Exception as e:
         logger.error("Failed to initialize WhisperModel: %s", e)
         raise TranscribeFailed(

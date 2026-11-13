@@ -3,7 +3,7 @@ Topic: {{topic}}. Entities: {{entities}}. Hook: {{hook_text}}. Mood of the clip:
 Domain: {{domain_description}}.
 Rules:
 - Describe a bold, simple scene with ONE clear focal subject that symbolises the topic (objects, vehicles, landscapes, silhouettes, icons, abstract shapes). No real people, no faces of real or famous people, no logos, no copyrighted characters, no official artwork.
-- For GTA 6 topics you may use the visual mood of a neon Florida-inspired coastal city (palm trees, sunset, sports cars, retro neon) as an ORIGINAL stylised scene, without any game logo or character.
+- You may use the thematic mood and aesthetic of the topic as an ORIGINAL stylized scene, without any official logos, copyrighted characters, or real faces.
 - High contrast, saturated, readable at small size. Leave the top third or the left third calmer for text.
 - text: a 1-3 word overlay (ALL CAPS) that does not repeat the whole title.
 

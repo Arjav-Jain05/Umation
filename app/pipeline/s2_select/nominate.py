@@ -52,11 +52,14 @@ def run(ctx: JobContext) -> None:
     else:
         chunks = ctx.read_artifact("chunks.json", ChunksArtifact).chunks
 
-    # Load GTA 6 glossary terms
+    # Load domain glossary terms
     domain_desc = "General short-form video clipping"
     glossary_terms: list[str] = []
-    glossary_path = ctx.settings.project_root / "config" / "glossary_gta6.yaml"
-    if glossary_path.exists() and ctx.settings.project_domain == "gta6":
+    domain = getattr(ctx.settings, "project_domain", "general")
+    glossary_path = ctx.settings.project_root / "config" / f"glossary_{domain}.yaml"
+    if not glossary_path.exists():
+        glossary_path = ctx.settings.project_root / "config" / "glossary_general.yaml"
+    if glossary_path.exists():
         import yaml
 
         try:
@@ -116,7 +119,7 @@ def run(ctx: JobContext) -> None:
             raise AppError(
                 code="OLLAMA_OFFLINE",
                 message=str(ce),
-                hint="Start Ollama in PowerShell: $env:OLLAMA_MODELS = 'D:\\Open_Source_Weights\\ollama'; ollama serve",
+                hint="Ensure Ollama is running ('ollama serve' or run start.bat)",
             ) from ce
         except Exception as e:
             logger.warning("Chunk %s nomination failed: %s", ch.id, e)

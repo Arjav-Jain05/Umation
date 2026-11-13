@@ -391,7 +391,7 @@ def check_ollama(env_path: Path) -> CheckResult:
             "Ollama local LLM",
             "FAIL",
             f"Cannot reach Ollama at {host}: {e}",
-            "In PowerShell: $env:OLLAMA_MODELS = 'D:\\Open_Source_Weights\\ollama'; ollama serve",
+            "In PowerShell run: start.bat or 'ollama serve'",
         )
 
 

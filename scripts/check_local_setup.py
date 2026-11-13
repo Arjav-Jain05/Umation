@@ -130,27 +130,34 @@ def check_disk_space_d() -> CheckResult:
         )
 
 
+ROOT_DIR = Path(__file__).resolve().parent.parent
+
+
+def get_weights_dir() -> Path:
+    raw = os.environ.get("WEIGHTS_DIR", "./weights")
+    p = Path(raw)
+    return p if p.is_absolute() else (ROOT_DIR / p).resolve()
+
+
 def check_env_vars() -> CheckResult:
-    weights_dir = os.environ.get("WEIGHTS_DIR", "D:\\Open_Source_Weights")
+    weights_dir = get_weights_dir()
     ollama_models = os.environ.get("OLLAMA_MODELS", "")
 
     issues = []
-    if not Path(weights_dir).exists():
+    if not weights_dir.exists():
         issues.append(f"WEIGHTS_DIR does not exist: {weights_dir}")
-    if "Open_Source_Weights" not in ollama_models and not Path("D:\\Open_Source_Weights\\ollama").exists():
-        issues.append("OLLAMA_MODELS not pointing to Open_Source_Weights\\ollama")
 
     if issues:
         return CheckResult(
             "Environment Variables",
             "WARN",
             "; ".join(issues),
-            "Run setx OLLAMA_MODELS D:\\Open_Source_Weights\\ollama and setx WEIGHTS_DIR D:\\Open_Source_Weights",
+            "Run python scripts/download_weights.py --core or setup_wizard.py",
         )
     return CheckResult(
         "Environment Variables",
         "PASS",
-        f"WEIGHTS_DIR={weights_dir}, OLLAMA_MODELS={ollama_models or 'D:\\Open_Source_Weights\\ollama'}",
+        f"WEIGHTS_DIR={weights_dir}, OLLAMA_MODELS={ollama_models or str(weights_dir / 'ollama')}",
     )
 
 
@@ -234,7 +241,7 @@ def check_ytdlp() -> CheckResult:
 
 
 def check_whisper_models() -> CheckResult:
-    weights_dir = Path(os.environ.get("WEIGHTS_DIR", "D:\\Open_Source_Weights"))
+    weights_dir = get_weights_dir()
     whisper_root = weights_dir / "whisper"
     if not whisper_root.exists():
         return CheckResult("Whisper Models", "FAIL", f"Missing {whisper_root}", "Run download_weights.py --core")
@@ -252,17 +259,17 @@ def check_whisper_models() -> CheckResult:
 
 
 def check_cv_models() -> CheckResult:
-    weights_dir = Path(os.environ.get("WEIGHTS_DIR", "D:\\Open_Source_Weights"))
+    weights_dir = get_weights_dir()
     p1 = weights_dir / "models" / "blaze_face_short_range.tflite"
-    p2 = Path("assets/models/blaze_face_short_range.tflite")
+    p2 = ROOT_DIR / "assets" / "models" / "blaze_face_short_range.tflite"
     if p1.is_file() or p2.is_file():
         loc = p1 if p1.is_file() else p2
         return CheckResult("MediaPipe BlazeFace", "PASS", f"Installed at {loc} ({loc.stat().st_size} bytes)")
-    return CheckResult("MediaPipe BlazeFace", "FAIL", "blaze_face_short_range.tflite missing", "Place blaze_face_short_range.tflite in D:\\Open_Source_Weights\\models")
+    return CheckResult("MediaPipe BlazeFace", "FAIL", "blaze_face_short_range.tflite missing", "Run python scripts/download_models.py")
 
 
 def check_hf_weights() -> CheckResult:
-    weights_dir = Path(os.environ.get("WEIGHTS_DIR", "D:\\Open_Source_Weights"))
+    weights_dir = get_weights_dir()
     hf_root = weights_dir / "huggingface"
     expected = [
         "BAAI--bge-small-en-v1.5",

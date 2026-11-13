@@ -139,9 +139,12 @@ def run(ctx: JobContext) -> None:
         scoring_cfg = yaml.safe_load(f) or {}
     rubric_weights = scoring_cfg.get("rubric_weights", {})
 
-    domain_desc = "GTA 6 clipping"
+    domain_desc = "Viral Shorts clipping"
     glossary_terms: list[str] = []
-    glossary_path = ctx.settings.project_root / "config" / "glossary_gta6.yaml"
+    domain = getattr(ctx.settings, "project_domain", "general")
+    glossary_path = ctx.settings.project_root / "config" / f"glossary_{domain}.yaml"
+    if not glossary_path.exists():
+        glossary_path = ctx.settings.project_root / "config" / "glossary_general.yaml"
     if glossary_path.exists():
         with open(glossary_path, encoding="utf-8") as f:
             gdata = yaml.safe_load(f) or {}
@@ -218,7 +221,7 @@ def run(ctx: JobContext) -> None:
                 raise AppError(
                     code="OLLAMA_OFFLINE",
                     message=str(ce),
-                    hint="Start Ollama in PowerShell: $env:OLLAMA_MODELS = 'D:\\Open_Source_Weights\\ollama'; ollama serve",
+                    hint="Ensure Ollama is running ('ollama serve' or run start.bat)",
                 ) from ce
             except Exception as e:
                 logger.warning("Batch %d judge failed: %s", b_idx, e)
@@ -260,7 +263,7 @@ def run(ctx: JobContext) -> None:
 
         # Collect entities and flags
         first_run = runs_list[0]
-        topic = first_run.topic or "GTA 6 Moment"
+        topic = first_run.topic or "Viral Moment"
         hook_text = first_run.hook_text or c_obj.reason
 
         item_reasons = dict(first_run.reasons)
