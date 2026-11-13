@@ -96,7 +96,7 @@ def evaluate_judge(
                 prompt=prompt,
                 schema=CompletenessVerdict.model_json_schema(),
                 model=model_name,
-                keep_alive=0,
+                keep_alive="5m",
                 temperature=0.1,
             )
             return CompletenessVerdict.model_validate(res_dict)

@@ -291,3 +291,12 @@ def run(ctx: JobContext) -> None:
 
     ctx.write_artifact("judged.json", JudgedArtifact(items=final_judged_items))
     ctx.progress("judge", 1.0, f"Rubric judging complete: {len(final_judged_items)} items scored")
+
+    # Release model memory once judging stage completes
+    try:
+        if hasattr(ctx, "llm") and hasattr(ctx.llm, "manager") and hasattr(ctx.llm.manager, "unload_all"):
+            ctx.llm.manager.unload_all()
+        elif hasattr(ctx, "gemini") and hasattr(ctx.gemini, "manager") and hasattr(ctx.gemini.manager, "unload_all"):
+            ctx.gemini.manager.unload_all()
+    except Exception as exc:
+        logger.debug("Failed to unload models at end of judge stage: %s", exc)

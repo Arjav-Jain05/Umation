@@ -69,13 +69,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
     setup_logging(settings)
 
-    # Ensure Ollama local LLM service is active
-    try:
-        from scripts.ensure_ollama import ensure_ollama
-        ensure_ollama(verbose=False)
-    except Exception as exc:
-        logger.warning("Could not auto-verify/start Ollama: %s", exc)
-
     logger.info("Initializing database at %s", settings.data_dir / "app.db")
     init_db(settings.data_dir / "app.db")
     logger.info("Starting background pipeline worker thread")

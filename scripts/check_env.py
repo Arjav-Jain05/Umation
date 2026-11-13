@@ -15,6 +15,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 
+def _creation_flags() -> int:
+    return subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+
+
 # Add nvidia dll directories if present
 def setup_nvidia_dll_paths() -> list[str]:
     added = []
@@ -114,7 +118,13 @@ def check_ffmpeg() -> list[CheckResult]:
 
     # Check ffmpeg version
     try:
-        proc = subprocess.run(["ffmpeg", "-version"], capture_output=True, text=True, timeout=10)
+        proc = subprocess.run(
+            ["ffmpeg", "-version"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            creationflags=_creation_flags(),
+        )
         first_line = proc.stdout.splitlines()[0] if proc.stdout else "unknown"
         results.append(CheckResult("FFmpeg version", "PASS", first_line))
     except Exception as e:
@@ -127,6 +137,7 @@ def check_ffmpeg() -> list[CheckResult]:
             capture_output=True,
             text=True,
             timeout=10,
+            creationflags=_creation_flags(),
         )
         if "h264_nvenc" in enc_proc.stdout:
             # Run test encode
@@ -147,6 +158,7 @@ def check_ffmpeg() -> list[CheckResult]:
                 capture_output=True,
                 text=True,
                 timeout=15,
+                creationflags=_creation_flags(),
             )
             # Check stderr for encoded frames
             if "frame=" in test_proc.stderr:
@@ -182,6 +194,7 @@ def check_gpu() -> CheckResult:
             capture_output=True,
             text=True,
             timeout=10,
+            creationflags=_creation_flags(),
         )
         if proc.returncode == 0 and proc.stdout.strip():
             gpu_info = proc.stdout.strip().replace("\r", "")
@@ -203,7 +216,13 @@ def check_deno() -> CheckResult:
 
     if deno_path:
         try:
-            proc = subprocess.run([deno_path, "--version"], capture_output=True, text=True, timeout=5)
+            proc = subprocess.run(
+                [deno_path, "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                creationflags=_creation_flags(),
+            )
             ver = proc.stdout.splitlines()[0] if proc.stdout else "deno found"
             return CheckResult("Deno (yt-dlp JS runtime)", "PASS", ver)
         except Exception as e:

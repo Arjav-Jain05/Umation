@@ -114,7 +114,7 @@ class LocalModelManager:
                         temperature=temp,
                         think=think,
                         num_ctx=num_ctx,
-                        keep_alive=0,
+                        keep_alive=step.get("keep_alive", "5m"),
                     )
                     latency = time.monotonic() - t0
 
@@ -204,7 +204,7 @@ class LocalModelManager:
                     temperature=temp,
                     think=think,
                     num_ctx=num_ctx,
-                    keep_alive=0,
+                    keep_alive=step.get("keep_alive", "5m"),
                 )
                 latency = time.monotonic() - t0
                 self.call_history.append({

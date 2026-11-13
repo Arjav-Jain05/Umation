@@ -125,9 +125,13 @@ def ensure_ollama(
     env["OLLAMA_KEEP_ALIVE"] = "30m"
 
     creationflags = 0
+    startupinfo = None
     if sys.platform == "win32":
         # 0x08000000 = CREATE_NO_WINDOW, 0x00000008 = DETACHED_PROCESS
         creationflags = subprocess.CREATE_NO_WINDOW | getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = 0  # SW_HIDE
 
     try:
         subprocess.Popen(
@@ -137,6 +141,7 @@ def ensure_ollama(
             stderr=subprocess.DEVNULL,
             stdin=subprocess.DEVNULL,
             creationflags=creationflags,
+            startupinfo=startupinfo,
         )
     except Exception as exc:
         if verbose:
