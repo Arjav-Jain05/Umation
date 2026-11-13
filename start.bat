@@ -11,6 +11,9 @@ echo.
 rem 1. Set environment variables for local models
 set "OLLAMA_MODELS=D:\Open_Source_Weights\ollama"
 set "OLLAMA_HOST=127.0.0.1:11434"
+set "OLLAMA_KEEP_ALIVE=60m"
+set "OLLAMA_MAX_LOADED_MODELS=3"
+set "OLLAMA_NUM_PARALLEL=1"
 
 rem 2. Activate virtual environment (create if missing)
 if not exist ".venv\Scripts\activate.bat" (
@@ -28,7 +31,11 @@ if not exist ".venv\Scripts\activate.bat" (
     call .venv\Scripts\activate.bat
 )
 
-rem 3. Ensure Ollama local LLM service is running
+rem 3. Clean up any leftover detached runners to prevent popup windows
+taskkill /F /IM "llama-server.exe" >nul 2>&1
+taskkill /F /IM "ollama.exe" >nul 2>&1
+
+rem 4. Ensure Ollama local LLM service is running (attached to this console)
 echo [1/3] Ensuring Ollama local LLM service is running...
 python scripts\ensure_ollama.py
 

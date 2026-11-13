@@ -71,7 +71,9 @@ class LocalModelManager:
 
     def _get_chain_for_task(self, task: str) -> list[dict[str, Any]]:
         chain = self.chains.get(task, [])
-        if not chain:
+        if isinstance(chain, dict):
+            chain = chain.get("judges") or chain.get("steps") or next(iter(chain.values()))
+        if not isinstance(chain, list) or not chain:
             # Fallback to single primary model
             return [{"model": "qwen3.5:9b", "num_ctx": 4096, "temperature": 0.2, "think": False}]
         return chain
@@ -114,7 +116,7 @@ class LocalModelManager:
                         temperature=temp,
                         think=think,
                         num_ctx=num_ctx,
-                        keep_alive=step.get("keep_alive", "5m"),
+                        keep_alive=step.get("keep_alive", "60m"),
                     )
                     latency = time.monotonic() - t0
 
@@ -204,7 +206,7 @@ class LocalModelManager:
                     temperature=temp,
                     think=think,
                     num_ctx=num_ctx,
-                    keep_alive=step.get("keep_alive", "5m"),
+                    keep_alive=step.get("keep_alive", "60m"),
                 )
                 latency = time.monotonic() - t0
                 self.call_history.append({

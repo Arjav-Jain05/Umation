@@ -14,7 +14,13 @@ import numpy as np
 import soundfile as sf
 
 from app.core.schemas import QAReport
-from app.utils.ffmpeg import _get_creation_flags, loudnorm_measure, probe, run_ffmpeg
+from app.utils.ffmpeg import (
+    _get_creation_flags,
+    _get_startupinfo,
+    loudnorm_measure,
+    probe,
+    run_ffmpeg,
+)
 
 logger = logging.getLogger("app.utils.qa")
 
@@ -42,6 +48,7 @@ def _check_audio_pops(audio_path: Path, cut_points: list[float] | None = None) -
                 cmd,
                 capture_output=True,
                 creationflags=_get_creation_flags(),
+                startupinfo=_get_startupinfo(),
                 timeout=30,
             )
             if res.returncode == 0 and res.stdout:

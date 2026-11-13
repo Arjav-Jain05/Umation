@@ -56,7 +56,7 @@ class OllamaProvider(LLMProvider):
         temperature: float = 0.2,
         think: bool = False,
         num_ctx: int = 4096,
-        keep_alive: int | str = "5m",
+        keep_alive: int | str = "60m",
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Generate structured JSON adhering to the provided JSON schema."""
@@ -125,7 +125,7 @@ class OllamaProvider(LLMProvider):
         temperature: float = 0.3,
         think: bool = False,
         num_ctx: int = 4096,
-        keep_alive: int | str = "5m",
+        keep_alive: int | str = "60m",
         **kwargs: Any,
     ) -> str:
         """Generate free-form text output."""

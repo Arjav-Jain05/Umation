@@ -50,11 +50,17 @@ class FrameReader:
             "-",
         ]
         flags = subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0
+        startupinfo = None
+        if hasattr(subprocess, "STARTUPINFO"):
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = 0
         self.proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             creationflags=flags,
+            startupinfo=startupinfo,
         )
         return self
 
@@ -123,11 +129,17 @@ class FrameWriter:
             str(self.out_path),
         ]
         flags = subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0
+        startupinfo = None
+        if hasattr(subprocess, "STARTUPINFO"):
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = 0
         self.proc = subprocess.Popen(
             cmd,
             stdin=subprocess.PIPE,
             stderr=subprocess.PIPE,
             creationflags=flags,
+            startupinfo=startupinfo,
         )
         return self
 

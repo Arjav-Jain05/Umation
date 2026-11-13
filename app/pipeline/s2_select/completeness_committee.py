@@ -96,7 +96,7 @@ def evaluate_judge(
                 prompt=prompt,
                 schema=CompletenessVerdict.model_json_schema(),
                 model=model_name,
-                keep_alive="5m",
+                keep_alive="60m",
                 temperature=0.1,
             )
             return CompletenessVerdict.model_validate(res_dict)
@@ -140,7 +140,7 @@ def run_completeness_committee(
     max_repairs: int = 2,
     allow_cliffhanger: bool = False,
     judge_model_1: str = "qwen3.5:9b",
-    judge_model_2: str = "gemma4:e4b",
+    judge_model_2: str = "qwen3.5:9b",
 ) -> tuple[bool, int, int, dict[str, Any]]:
     """Run two-judge cross-family completeness committee with boundary repair loop (L4 & L6).
 

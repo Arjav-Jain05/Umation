@@ -34,6 +34,15 @@ def _get_creation_flags() -> int:
     return subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
 
 
+def _get_startupinfo() -> subprocess.STARTUPINFO | None:
+    if sys.platform == "win32":
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        si.wShowWindow = 0  # SW_HIDE
+        return si
+    return None
+
+
 @lru_cache(maxsize=16)
 def has_encoder(name: str) -> bool:
     """Check if ffmpeg binary supports a specific encoder."""
@@ -48,6 +57,7 @@ def has_encoder(name: str) -> bool:
             encoding="utf-8",
             timeout=10,
             creationflags=_get_creation_flags(),
+            startupinfo=_get_startupinfo(),
         )
         return name in res.stdout
     except Exception as e:
@@ -110,6 +120,7 @@ def run_ffmpeg(
             errors="replace",
             timeout=timeout,
             creationflags=_get_creation_flags(),
+            startupinfo=_get_startupinfo(),
         )
     except subprocess.TimeoutExpired as e:
         raise FfmpegFailed(
@@ -155,6 +166,7 @@ def probe(path: Path | str) -> ProbeInfo:
         encoding="utf-8",
         timeout=30,
         creationflags=_get_creation_flags(),
+        startupinfo=_get_startupinfo(),
     )
     if res.returncode != 0:
         raise FfmpegFailed(f"ffprobe failed on {p}: {res.stderr}")

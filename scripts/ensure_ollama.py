@@ -122,13 +122,13 @@ def ensure_ollama(
     env = os.environ.copy()
     env["OLLAMA_MODELS"] = str(models_dir)
     env["OLLAMA_HOST"] = host
-    env["OLLAMA_KEEP_ALIVE"] = "30m"
+    env["OLLAMA_KEEP_ALIVE"] = "60m"
+    env["OLLAMA_MAX_LOADED_MODELS"] = "3"
+    env["OLLAMA_NUM_PARALLEL"] = "1"
 
     creationflags = 0
     startupinfo = None
     if sys.platform == "win32":
-        # 0x08000000 = CREATE_NO_WINDOW, 0x00000008 = DETACHED_PROCESS
-        creationflags = subprocess.CREATE_NO_WINDOW | getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
         startupinfo = subprocess.STARTUPINFO()
         startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         startupinfo.wShowWindow = 0  # SW_HIDE

@@ -16,12 +16,18 @@ def get_vram_mb() -> float:
     """Return currently used GPU VRAM in MB via nvidia-smi."""
     try:
         flags = subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0
+        startupinfo = None
+        if hasattr(subprocess, "STARTUPINFO"):
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = 0
         res = subprocess.run(
             ["nvidia-smi", "--query-gpu=memory.used", "--format=csv,noheader,nounits"],
             capture_output=True,
             text=True,
             timeout=3,
             creationflags=flags,
+            startupinfo=startupinfo,
         )
         if res.returncode == 0 and res.stdout.strip():
             return float(res.stdout.strip().split("\n")[0].strip())
