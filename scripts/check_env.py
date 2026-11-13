@@ -328,6 +328,54 @@ def check_pillow_fonts(assets_dir: Path) -> CheckResult:
         return CheckResult("Pillow fonts", "WARN", f"Font checking error: {e}")
 
 
+def check_ollama(env_path: Path) -> CheckResult:
+    import json
+    import urllib.error
+    import urllib.request
+
+    host = "127.0.0.1:11434"
+    if env_path.exists():
+        with open(env_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("OLLAMA_HOST="):
+                    val = line.split("=", 1)[1].strip().strip('"').strip("'")
+                    if val:
+                        host = val
+
+    if not host.startswith("http://") and not host.startswith("https://"):
+        url = f"http://{host}/api/tags"
+    else:
+        url = f"{host}/api/tags"
+
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "shorts-engine"})
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(req, timeout=3.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            models = [m.get("name", "") for m in data.get("models", [])]
+            models_str = ", ".join(models[:4]) if models else "none"
+            if not models:
+                return CheckResult(
+                    "Ollama local LLM",
+                    "WARN",
+                    f"Ollama running at {host} but no models installed",
+                    "Run 'ollama pull qwen3.5:9b'",
+                )
+            return CheckResult(
+                "Ollama local LLM",
+                "PASS",
+                f"Ollama active with {len(models)} model(s): {models_str}",
+            )
+    except Exception as e:
+        return CheckResult(
+            "Ollama local LLM",
+            "FAIL",
+            f"Cannot reach Ollama at {host}: {e}",
+            "In PowerShell: $env:OLLAMA_MODELS = 'D:\\Open_Source_Weights\\ollama'; ollama serve",
+        )
+
+
 def check_gemini(env_path: Path) -> CheckResult:
     # Load .env
     api_key = ""
@@ -347,9 +395,8 @@ def check_gemini(env_path: Path) -> CheckResult:
     if not api_key:
         return CheckResult(
             "Gemini API key",
-            "WARN",
-            "GEMINI_API_KEY not set in .env",
-            "Get a free key from Google AI Studio and paste into .env",
+            "PASS",
+            "Not set (local Ollama pipeline active)",
         )
 
     try:
@@ -440,6 +487,7 @@ def run_checks(root_dir: Path | None = None, in_process: bool = False) -> list[C
     results.append(check_mediapipe(assets_dir))
     results.append(check_opencv())
     results.append(check_pillow_fonts(assets_dir))
+    results.append(check_ollama(env_path))
     results.append(check_gemini(env_path))
     results.append(check_ac_power())
     results.append(check_port_free(in_process=in_process))

@@ -8,6 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.core.errors import AppError
 from app.core.paths import prompts_dir
 from app.core.schemas import (
     Candidate,
@@ -213,6 +214,12 @@ def run(ctx: JobContext) -> None:
                 for item in out.results:
                     if item.cid in all_judged_by_cid:
                         all_judged_by_cid[item.cid].append(item)
+            except ConnectionError as ce:
+                raise AppError(
+                    code="OLLAMA_OFFLINE",
+                    message=str(ce),
+                    hint="Start Ollama in PowerShell: $env:OLLAMA_MODELS = 'D:\\Open_Source_Weights\\ollama'; ollama serve",
+                ) from ce
             except Exception as e:
                 logger.warning("Batch %d judge failed: %s", b_idx, e)
 

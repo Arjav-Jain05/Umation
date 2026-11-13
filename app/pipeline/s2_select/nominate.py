@@ -6,6 +6,7 @@ import logging
 
 from pydantic import BaseModel, Field
 
+from app.core.errors import AppError
 from app.core.paths import prompts_dir
 from app.core.schemas import (
     Candidate,
@@ -111,6 +112,12 @@ def run(ctx: JobContext) -> None:
                 dur = sid_map[cand.end_sid].e - sid_map[cand.start_sid].s
                 if 12.0 <= dur <= 180.0:
                     all_raw.append((ch, cand))
+        except ConnectionError as ce:
+            raise AppError(
+                code="OLLAMA_OFFLINE",
+                message=str(ce),
+                hint="Start Ollama in PowerShell: $env:OLLAMA_MODELS = 'D:\\Open_Source_Weights\\ollama'; ollama serve",
+            ) from ce
         except Exception as e:
             logger.warning("Chunk %s nomination failed: %s", ch.id, e)
 

@@ -49,7 +49,15 @@ function updateStartState() {
   startBtn.disabled = !(validUrl && ackChecked);
 }
 
-if (urlInput) urlInput.addEventListener("input", updateStartState);
+if (urlInput) {
+  urlInput.addEventListener("input", updateStartState);
+  urlInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !startBtn.disabled) {
+      e.preventDefault();
+      startBtn.click();
+    }
+  });
+}
 if (ackCheckbox) ackCheckbox.addEventListener("change", updateStartState);
 
 // Handle Job Submit
@@ -186,6 +194,7 @@ async function loadResultsSummary() {
 }
 
 // Initial loads
+updateStartState();
 checkSystem();
 refreshJobs();
 loadResultsSummary();
